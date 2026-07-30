@@ -154,8 +154,8 @@ export default function Home() {
 
     setCargando(true);
     try {
-      let plantaId = null;
-      let imagenUrlFinal = null;
+      let plantaId: string | null = null;
+      let imagenUrlFinal: string | null = null;
       let precioNumerico = parseFloat(precioUnidad);
 
       if (archivoFoto) {
