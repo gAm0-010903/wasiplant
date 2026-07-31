@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-// Se eliminaron 'Clock' y 'Phone' porque no se usaban y causaban que Vercel rechazara la compilación
-import { Search, Calendar, Package, DollarSign, CheckCircle2, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Copy, Building2, Home, User, Printer, MessageCircle, Send } from 'lucide-react';
+import { Search, Calendar, Package, DollarSign, CheckCircle2, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Copy, Building2, Home, User, Printer, MessageCircle, Send, AlertTriangle, Info } from 'lucide-react';
 
 export default function Historial() {
   const [cajas, setCajas] = useState<any[]>([]);
@@ -30,6 +29,17 @@ export default function Historial() {
     departamento: '', provincia: '', distrito: '', 
     courier: '', agencia_departamento: '', agencia_provincia: '', agencia_distrito: '', agencia_direccion: '' 
   });
+
+  // ✅ NUEVO SISTEMA DE DIÁLOGOS (MODALES PROFESIONALES)
+  const [dialogo, setDialogo] = useState<{
+    abierto: boolean;
+    mensaje: string;
+    tipo: 'alerta' | 'confirmar' | 'opciones';
+    textoConfirmar?: string;
+    textoCancelar?: string;
+    accionConfirmar?: () => void;
+    accionCancelar?: () => void;
+  }>({ abierto: false, mensaje: '', tipo: 'alerta' });
 
   const empresasCourier = ['SHALOM', 'OLVA COURIER', 'MARVISUR', 'MÓVIL BUS', 'CIVA', 'CAVASSA', 'FLORES', 'OTRO'];
 
@@ -73,7 +83,6 @@ export default function Historial() {
           let { tipo_entrega, courier, agencia_departamento, agencia_provincia, agencia_distrito, agencia_direccion } = caja;
 
           if (!agencia_departamento && !courier) {
-            // Se aplicó (c: any) explícitamente para que Vercel no de error
             const cajaAnterior = data.find((c: any) => c.cliente_id === caja.cliente_id && c.id !== caja.id && (c.agencia_departamento || c.courier));
 
             if (cajaAnterior) {
@@ -101,7 +110,7 @@ export default function Historial() {
         setCajas(cajasProcesadas);
       }
     } catch (error: any) {
-      alert("Error: " + error.message);
+      setDialogo({ abierto: true, tipo: 'alerta', mensaje: "Error: " + error.message });
     } finally {
       setCargando(false);
     }
@@ -111,7 +120,6 @@ export default function Historial() {
     if(!distrito) { setAgenciasSugeridas([]); return; }
     const { data } = await supabase.from('cajas').select('agencia_direccion').eq('agencia_distrito', distrito).not('agencia_direccion', 'is', null);
     if (data) {
-      // Se aplicó (d: any) explícitamente
       const unicas = [...new Set(data.map((d: any) => d.agencia_direccion))];
       setAgenciasSugeridas(unicas as string[]);
     }
@@ -143,7 +151,6 @@ export default function Historial() {
       courier: caja.courier || '', agencia_departamento: dpto || '', agencia_provincia: prov || '', agencia_distrito: dist || '', agencia_direccion: caja.agencia_direccion || ''
     });
 
-    // Se aplicaron tipos estrictos (i: any)
     if (dpto) setListaProvincias([...new Set(ubigeoData.filter((i: any) => i.departamento === dpto).map((i: any) => i.provincia))].sort() as string[]);
     if (dpto && prov) setListaDistritos([...new Set(ubigeoData.filter((i: any) => i.departamento === dpto && i.provincia === prov).map((i: any) => i.distrito))].sort() as string[]);
     if (tipo === 'agencia' && dist) buscarAgenciasPrevias(dist);
@@ -161,43 +168,51 @@ export default function Historial() {
 
   const guardarEnvio = async (caja: any) => {
     const cliente = caja.clientes;
-    let actualizoPerfil = false;
-
     const nuevoDpto = formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_departamento : formEnvio.departamento;
     const nuevoProv = formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_provincia : formEnvio.provincia;
     const nuevoDist = formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_distrito : formEnvio.distrito;
 
+    const ejecutarGuardado = async (actualizoPerfil: boolean) => {
+      setCargando(true);
+      await supabase.from('cajas').update({
+        tipo_entrega: formEnvio.tipo_entrega,
+        courier: formEnvio.tipo_entrega === 'agencia' ? formEnvio.courier : null,
+        agencia_departamento: formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_departamento : null,
+        agencia_provincia: formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_provincia : null,
+        agencia_distrito: formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_distrito : null,
+        agencia_direccion: formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_direccion : null
+      }).eq('id', caja.id);
+
+      let datosAActualizarCliente: any = { nombre_completo: formEnvio.nombre_completo, dni: formEnvio.dni, celular: formEnvio.celular };
+      if (formEnvio.tipo_entrega === 'domicilio') datosAActualizarCliente.direccion = formEnvio.direccion;
+      
+      if (actualizoPerfil) {
+        datosAActualizarCliente.departamento = nuevoDpto;
+        datosAActualizarCliente.provincia = nuevoProv;
+        datosAActualizarCliente.distrito = nuevoDist;
+      }
+
+      await supabase.from('clientes').update(datosAActualizarCliente).eq('id', caja.cliente_id);
+      setEditandoEnvioId(null);
+      cargarHistorial(); 
+      setCargando(false);
+    };
+
     if (cliente.departamento && (cliente.departamento !== nuevoDpto || cliente.provincia !== nuevoProv || cliente.distrito !== nuevoDist)) {
-      const confirmar = window.confirm(`⚠️ ADVERTENCIA: La ubicación original de este cliente era ${cliente.distrito}, ${cliente.provincia}, ${cliente.departamento}.\n\nHoy estás enviando a ${nuevoDist}, ${nuevoProv}, ${nuevoDpto}.\n\n¿Deseas que esta nueva ubicación quede guardada en su perfil como predeterminada para el futuro?`);
-      if (confirmar) actualizoPerfil = true;
+      setDialogo({
+        abierto: true,
+        tipo: 'opciones',
+        mensaje: `Has cambiado el destino.\n\n¿Deseas guardar esta nueva ubicación como la principal para futuros pedidos de @${cliente.usuario_tiktok}?`,
+        textoConfirmar: 'Sí, guardar para el futuro',
+        textoCancelar: 'No, solo por hoy',
+        accionConfirmar: () => ejecutarGuardado(true),
+        accionCancelar: () => ejecutarGuardado(false)
+      });
     } else if (!cliente.departamento && nuevoDpto) {
-      actualizoPerfil = true;
+      ejecutarGuardado(true);
+    } else {
+      ejecutarGuardado(false);
     }
-
-    setCargando(true);
-    await supabase.from('cajas').update({
-      tipo_entrega: formEnvio.tipo_entrega,
-      courier: formEnvio.tipo_entrega === 'agencia' ? formEnvio.courier : null,
-      agencia_departamento: formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_departamento : null,
-      agencia_provincia: formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_provincia : null,
-      agencia_distrito: formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_distrito : null,
-      agencia_direccion: formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_direccion : null
-    }).eq('id', caja.id);
-
-    let datosAActualizarCliente: any = { nombre_completo: formEnvio.nombre_completo, dni: formEnvio.dni, celular: formEnvio.celular };
-    if (formEnvio.tipo_entrega === 'domicilio') datosAActualizarCliente.direccion = formEnvio.direccion;
-    
-    if (actualizoPerfil) {
-      datosAActualizarCliente.departamento = nuevoDpto;
-      datosAActualizarCliente.provincia = nuevoProv;
-      datosAActualizarCliente.distrito = nuevoDist;
-    }
-
-    await supabase.from('clientes').update(datosAActualizarCliente).eq('id', caja.cliente_id);
-
-    setEditandoEnvioId(null);
-    cargarHistorial(); 
-    setCargando(false);
   };
 
   const copiarResumen = async (caja: any) => {
@@ -231,14 +246,13 @@ export default function Historial() {
       const ubigeo = [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ');
       texto += `Destino: ${ubigeo || 'Pendiente'}\n`;
     }
-    
     texto += `\n¡Muchísimas gracias por tu preferencia! 💚`;
     
     try {
       await navigator.clipboard.writeText(texto);
-      alert("¡Mensaje copiado! Listo para enviarlo a tu cliente.");
+      setDialogo({ abierto: true, tipo: 'alerta', mensaje: "¡Mensaje copiado con éxito! Listo para pegarlo en tu chat." });
     } catch (err) {
-      alert("Error al copiar el texto.");
+      setDialogo({ abierto: true, tipo: 'alerta', mensaje: "Error al copiar el texto en tu dispositivo." });
     }
   };
 
@@ -274,14 +288,9 @@ export default function Historial() {
       const ubigeo = [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ');
       texto += `Destino: ${ubigeo || 'Pendiente'}\n`;
     }
-    
     texto += `\n¡Muchísimas gracias por tu preferencia! 💚`;
     
-    try {
-      await navigator.clipboard.writeText(texto);
-    } catch (err) {
-      console.log("No se pudo copiar automáticamente.");
-    }
+    try { await navigator.clipboard.writeText(texto); } catch (err) { }
 
     if (celular) {
       const numeroLimpio = celular.replace(/\D/g, '');
@@ -325,15 +334,8 @@ export default function Historial() {
               @page { size: A5 portrait; margin: 0; }
               body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             }
-            body { 
-              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-              margin: 0; padding: 0; background-color: #f9f9f9; 
-              display: flex; justify-content: center; align-items: center; min-height: 100vh;
-            }
-            .etiqueta-a5 {
-              width: 148mm; height: 210mm; background: #fff; border: 2px solid #000;
-              box-sizing: border-box; padding: 12mm 10mm; display: flex; flex-direction: column;
-            }
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f9f9f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+            .etiqueta-a5 { width: 148mm; height: 210mm; background: #fff; border: 2px solid #000; box-sizing: border-box; padding: 12mm 10mm; display: flex; flex-direction: column; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
             .header { text-align: center; border-bottom: 4px solid #166534; padding-bottom: 12px; margin-bottom: 15px; }
             .header h1 { margin: 0; font-size: 34px; text-transform: uppercase; color: #166534; letter-spacing: 2px; }
             .header p { margin: 5px 0 0 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold; }
@@ -353,15 +355,8 @@ export default function Historial() {
         <body>
           <div class="etiqueta-a5">
             <div class="header"><h1>WasiPlant</h1><p>Envío Prioritario 🌿</p></div>
-            <div class="seccion destacado">
-              <span class="label">Destinatario</span>
-              <div class="valor-grande">${nombre}</div>
-              <div class="valor-mediano">📱 Celular: ${celular} <br> 🪪 DNI: ${dni}</div>
-            </div>
-            <div class="seccion">
-              <span class="label">Datos de Envío</span>
-              <div class="valor-mediano"><strong>[ ${modalidad.toUpperCase()} ]</strong><br><br>${destino || 'Pendiente de confirmación'}</div>
-            </div>
+            <div class="seccion destacado"><span class="label">Destinatario</span><div class="valor-grande">${nombre}</div><div class="valor-mediano">📱 Celular: ${celular} <br> 🪪 DNI: ${dni}</div></div>
+            <div class="seccion"><span class="label">Datos de Envío</span><div class="valor-mediano"><strong>[ ${modalidad.toUpperCase()} ]</strong><br><br>${destino || 'Pendiente de confirmación'}</div></div>
             <div class="info-grid">
               <div class="info-box"><div class="label">N° de Pedido</div><div class="val">#${codigoPedido}</div></div>
               <div class="info-box"><div class="label">Fecha / Bultos</div><div class="val">${fechaFormateada} / ${caja.cantidadPlantas} plantas</div></div>
@@ -379,7 +374,9 @@ export default function Historial() {
 
   const abrirWhatsApp = (e: React.MouseEvent, celular: string) => {
     e.stopPropagation(); 
-    if (!celular) return alert("Este cliente no tiene un número de celular registrado.");
+    if (!celular) {
+      return setDialogo({ abierto: true, tipo: 'alerta', mensaje: "Este cliente no tiene un número de celular registrado en el sistema." });
+    }
     const num = celular.replace(/\D/g, '');
     const numFinal = num.startsWith('51') ? num : `51${num}`;
     window.open(`https://wa.me/${numFinal}`, '_blank');
@@ -387,39 +384,68 @@ export default function Historial() {
 
   const reabrirCaja = async (e: React.MouseEvent, idCaja: string, idCliente: string, usuario: string) => {
     e.stopPropagation(); 
-    if (!window.confirm(`¿Devolver el pedido de @${usuario} al Panel en Vivo?`)) return;
-    setCargando(true);
-    await supabase.from('cajas').update({ estado: 'cerrada' }).eq('cliente_id', idCliente).eq('estado', 'abierta').neq('id', idCaja);
-    await supabase.from('cajas').update({ estado: 'abierta', estado_envio: 'proceso' }).eq('id', idCaja);
-    cargarHistorial(); 
+    setDialogo({
+      abierto: true,
+      tipo: 'confirmar',
+      mensaje: `¿Devolver el pedido de @${usuario} al Panel en Vivo para editarlo?`,
+      textoConfirmar: 'Sí, Reabrir',
+      accionConfirmar: async () => {
+        setCargando(true);
+        await supabase.from('cajas').update({ estado: 'cerrada' }).eq('cliente_id', idCliente).eq('estado', 'abierta').neq('id', idCaja);
+        await supabase.from('cajas').update({ estado: 'abierta', estado_envio: 'proceso' }).eq('id', idCaja);
+        cargarHistorial(); 
+      }
+    });
   };
 
   const eliminarCaja = async (e: React.MouseEvent, idCaja: string) => {
     e.stopPropagation();
-    if (!window.confirm("¡ATENCIÓN! ¿Estás seguro de eliminar TODO este pedido?")) return;
-    setCargando(true);
-    await supabase.from('detalle_caja').delete().eq('caja_id', idCaja);
-    await supabase.from('abonos').delete().eq('caja_id', idCaja);
-    await supabase.from('cajas').delete().eq('id', idCaja);
-    cargarHistorial(); 
+    setDialogo({
+      abierto: true,
+      tipo: 'confirmar',
+      mensaje: "¡ATENCIÓN! ¿Estás seguro de eliminar TODO este pedido? Esta acción borrará las plantas y el historial de pago.",
+      textoConfirmar: 'Sí, Eliminar todo',
+      accionConfirmar: async () => {
+        setCargando(true);
+        await supabase.from('detalle_caja').delete().eq('caja_id', idCaja);
+        await supabase.from('abonos').delete().eq('caja_id', idCaja);
+        await supabase.from('cajas').delete().eq('id', idCaja);
+        cargarHistorial(); 
+      }
+    });
   };
 
   const cambiarEstadoEnvio = async (caja: any, nuevoEstado: string, estadoActual: string) => {
-    if (estadoActual === 'enviado') return alert("Este pedido ya fue enviado y está bloqueado.");
-    if (nuevoEstado === 'enviado' && !window.confirm("📦 ALERTA: Al marcar como 'Pedido Enviado', este registro se BLOQUEARÁ. ¿Continuar?")) return;
-    setCargando(true);
-    await supabase.from('cajas').update({ 
-      estado_envio: nuevoEstado, tipo_entrega: caja.tipo_entrega, courier: caja.courier,
-      agencia_departamento: caja.agencia_departamento, agencia_provincia: caja.agencia_provincia, agencia_distrito: caja.agencia_distrito, agencia_direccion: caja.agencia_direccion
-    }).eq('id', caja.id);
-    if (nuevoEstado === 'enviado') setFilaExpandida(null); 
-    cargarHistorial();
+    if (estadoActual === 'enviado') {
+      return setDialogo({ abierto: true, tipo: 'alerta', mensaje: "Este pedido ya fue enviado y está bloqueado para proteger la información." });
+    }
+    
+    const ejecutarCambio = async () => {
+      setCargando(true);
+      await supabase.from('cajas').update({ 
+        estado_envio: nuevoEstado, tipo_entrega: caja.tipo_entrega, courier: caja.courier,
+        agencia_departamento: caja.agencia_departamento, agencia_provincia: caja.agencia_provincia, agencia_distrito: caja.agencia_distrito, agencia_direccion: caja.agencia_direccion
+      }).eq('id', caja.id);
+      if (nuevoEstado === 'enviado') setFilaExpandida(null); 
+      cargarHistorial();
+    };
+
+    if (nuevoEstado === 'enviado') {
+      setDialogo({
+        abierto: true,
+        tipo: 'confirmar',
+        mensaje: "📦 ALERTA DE LOGÍSTICA\n\nAl marcar este paquete como 'ENVIADO', el registro se BLOQUEARÁ y ya no podrás modificarlo.\n\n¿Deseas continuar?",
+        textoConfirmar: 'Sí, confirmar envío',
+        accionConfirmar: ejecutarCambio
+      });
+    } else {
+      ejecutarCambio();
+    }
   };
 
   const haceUnaSemana = new Date();
   haceUnaSemana.setDate(haceUnaSemana.getDate() - 7);
 
-  // Se aplicó (caja: any) explícitamente
   const cajasFiltradas = cajas.filter((caja: any) => {
     const termino = busqueda.toLowerCase();
     const cliente = caja.clientes || {};
@@ -451,374 +477,342 @@ export default function Historial() {
   });
 
   return (
-    <div className="min-h-screen p-4 md:p-8 font-sans text-gray-800">
+    <div className="min-h-screen p-3 md:p-8 font-sans text-gray-800 bg-gray-50/30 relative">
       <header className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-green-700">🕒 Historial de Ventas</h1>
-        <p className="text-sm md:text-base text-gray-500">Gestión de pedidos, cobranzas y logística inteligente</p>
+        <h1 className="text-2xl md:text-3xl font-black text-green-700 tracking-tight">🕒 Historial Logístico</h1>
+        <p className="text-sm md:text-base text-gray-500 font-medium">Gestión de envíos y cobranzas adaptada a móviles</p>
       </header>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-        <div className="relative w-full md:col-span-5">
-          <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
-          <input type="text" placeholder="Buscar cliente o distrito..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 outline-none transition-all text-sm" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 mb-6 grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="relative w-full lg:col-span-5">
+          <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
+          <input type="text" placeholder="Buscar cliente, DNI, o distrito..." className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 outline-none text-sm font-medium bg-gray-50/50" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
         </div>
         
-        <div className="md:col-span-7 flex flex-wrap xl:flex-nowrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1 flex-1">
-            <Calendar className="text-gray-400" size={18} />
+        <div className="lg:col-span-7 flex flex-col sm:flex-row items-center gap-3">
+          <div className="flex items-center gap-3 bg-gray-50/50 border border-gray-200 rounded-xl px-4 py-2 w-full sm:flex-1">
+            <Calendar className="text-green-600" size={18} />
             <div className="flex flex-col w-full">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Desde</span>
-              <input type="date" className="bg-transparent border-none outline-none text-sm text-gray-700 py-1 w-full" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Desde</span>
+              <input type="date" className="bg-transparent border-none outline-none text-sm font-semibold text-gray-700 w-full" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1 flex-1">
-            <Calendar className="text-gray-400" size={18} />
+          <div className="flex items-center gap-3 bg-gray-50/50 border border-gray-200 rounded-xl px-4 py-2 w-full sm:flex-1">
+            <Calendar className="text-green-600" size={18} />
             <div className="flex flex-col w-full">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Hasta</span>
-              <input type="date" className="bg-transparent border-none outline-none text-sm text-gray-700 py-1 w-full" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} />
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Hasta</span>
+              <input type="date" className="bg-transparent border-none outline-none text-sm font-semibold text-gray-700 w-full" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} />
             </div>
           </div>
-          {(fechaInicio || fechaFin || busqueda) && (
-            <button onClick={() => {setFechaInicio(''); setFechaFin(''); setBusqueda('');}} className="text-xs font-bold text-red-500 hover:text-red-700 underline px-2 w-full md:w-auto text-center mt-2 md:mt-0">Limpiar Filtros</button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+        
+        <div className="hidden lg:flex items-center p-4 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+          <div className="w-12 text-center"></div>
+          <div className="w-28">Fecha</div>
+          <div className="flex-1">Cliente y Destino</div>
+          <div className="w-32 text-center">Total</div>
+          <div className="w-32 text-center">Estado Pago</div>
+          <div className="w-36 text-center">Logística</div>
+          <div className="w-32 text-center">Acciones</div>
+        </div>
+
+        <div className="divide-y divide-gray-100">
+          {cajasFiltradas.length > 0 ? (
+            cajasFiltradas.map((caja: any) => {
+              const dia = new Date(caja.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+              const estaPagado = caja.saldo <= 0 && caja.totalCaja > 0;
+              const estaAbierta = caja.estado === 'abierta'; 
+              const estadoEnvio = caja.estado_envio || 'proceso';
+              const estaBloqueado = estadoEnvio === 'enviado'; 
+              const ubigeoDestino = caja.tipo_entrega === 'agencia' 
+                ? [caja.agencia_distrito, caja.agencia_provincia].filter(Boolean).join(', ') 
+                : [caja.clientes?.distrito, caja.clientes?.provincia].filter(Boolean).join(', ');
+
+              return (
+                <div key={caja.id} className="flex flex-col">
+                  <div className={`flex flex-col lg:flex-row lg:items-center p-4 gap-3 md:gap-4 transition-colors ${estaBloqueado ? 'bg-gray-50/50' : 'hover:bg-green-50/30'}`} onClick={() => toggleFila(caja)}>
+                    
+                    <div className="flex justify-between items-center lg:hidden w-full cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-green-700 bg-green-100/50 px-2.5 py-1 rounded-lg text-sm border border-green-200/50">@{caja.clientes?.usuario_tiktok}</span>
+                        {estaAbierta && <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-1 rounded-md animate-pulse">EDITANDO</span>}
+                      </div>
+                      <div className="p-1 bg-gray-100 rounded-full text-gray-500">{filaExpandida === caja.id ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}</div>
+                    </div>
+
+                    <div className="hidden lg:flex w-12 justify-center text-gray-400 cursor-pointer">
+                      {filaExpandida === caja.id ? <ChevronUp size={22}/> : <ChevronDown size={22}/>}
+                    </div>
+
+                    <div className="text-xs text-gray-500 lg:text-sm lg:text-gray-800 lg:w-28 font-semibold flex items-center gap-1.5">
+                      <Calendar size={14} className="lg:hidden text-gray-400"/> {dia}
+                    </div>
+
+                    <div className="hidden lg:flex flex-col flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-green-700 text-sm">@{caja.clientes?.usuario_tiktok}</span>
+                        {estaAbierta && <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-md">EDITANDO CAJA</span>}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-1 font-medium">
+                        {caja.tipo_entrega === 'agencia' ? <Building2 size={12} className="text-blue-500"/> : <Home size={12} className="text-green-500"/>} 
+                        {caja.tipo_entrega === 'agencia' ? caja.courier : 'Domicilio'} • {ubigeoDestino || 'Sin destino'}
+                      </div>
+                    </div>
+
+                    <div className="lg:hidden flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 w-fit px-2 py-1 rounded-md border border-gray-100">
+                      {caja.tipo_entrega === 'agencia' ? <Building2 size={12} className="text-blue-500"/> : <Home size={12} className="text-green-500"/>} 
+                      <span className="font-semibold">{caja.tipo_entrega === 'agencia' ? caja.courier : 'Domicilio'}:</span> {ubigeoDestino || 'Falta ubigeo'}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 lg:hidden mt-1 w-full">
+                      <div className="bg-gray-50 border border-gray-100 p-2 rounded-xl flex flex-col justify-center items-center text-center">
+                        <span className="text-[10px] uppercase text-gray-400 font-bold mb-0.5">Total Pago</span>
+                        <span className="text-sm font-black text-gray-800">S/ {caja.totalCaja.toFixed(2)}</span>
+                      </div>
+                      <div className={`p-2 rounded-xl border flex flex-col justify-center items-center text-center ${estaPagado ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}>
+                        <span className={`text-[10px] uppercase font-bold mb-0.5 ${estaPagado ? 'text-green-600' : 'text-orange-600'}`}>Estado</span>
+                        {estaPagado ? <span className="text-sm font-black text-green-700 flex items-center gap-1"><CheckCircle2 size={14}/> Pagado</span> : <span className="text-sm font-black text-orange-700">Falta S/{caja.saldo.toFixed(2)}</span>}
+                      </div>
+                    </div>
+
+                    <div className="hidden lg:block w-32 text-center font-black text-gray-700">S/ {caja.totalCaja.toFixed(2)}</div>
+                    <div className="hidden lg:flex w-32 justify-center">
+                      {estaPagado ? <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full"><CheckCircle2 size={14} className="inline mr-1"/> OK</span> : <span className="text-xs font-bold text-orange-700 bg-orange-100 px-3 py-1.5 rounded-full">Falta S/{caja.saldo.toFixed(2)}</span>}
+                    </div>
+
+                    <div className="flex justify-center items-center gap-2 lg:w-36 mt-1 lg:mt-0">
+                      {estadoEnvio === 'proceso' && <span className="text-xs font-bold text-gray-700 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-full w-full lg:w-auto text-center"><Timer size={14} className="inline mb-0.5 mr-1"/> En Proceso</span>}
+                      {estadoEnvio === 'listo' && <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full w-full lg:w-auto text-center"><PackageCheck size={14} className="inline mb-0.5 mr-1"/> Listo</span>}
+                      {estadoEnvio === 'enviado' && <span className="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-full w-full lg:w-auto text-center"><Truck size={14} className="inline mb-0.5 mr-1"/> Enviado</span>}
+                    </div>
+
+                    <div className="flex justify-between lg:justify-center gap-2 lg:w-32 mt-2 lg:mt-0 pt-3 border-t border-gray-100 lg:border-t-0 lg:pt-0">
+                      <div className="flex gap-2">
+                        <button onClick={(e) => { e.stopPropagation(); enviarResumenWhatsApp(caja); }} title="Enviar WhatsApp Directo" className="p-2.5 lg:p-2 text-green-600 hover:bg-green-50 rounded-xl transition-colors bg-white border border-gray-200 shadow-sm lg:shadow-none lg:border-transparent lg:bg-transparent flex-1 flex justify-center"><MessageCircle size={18} /></button>
+                        <button onClick={(e) => generarEtiquetaPDF(e, caja)} title="Imprimir PDF A5" className="p-2.5 lg:p-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors bg-white border border-gray-200 shadow-sm lg:shadow-none lg:border-transparent lg:bg-transparent flex-1 flex justify-center"><Printer size={18} /></button>
+                      </div>
+                      <div className="flex gap-2">
+                        {estaBloqueado ? (
+                          <span className="p-2.5 lg:p-2 text-gray-400 bg-gray-100 rounded-xl cursor-not-allowed flex-1 flex justify-center"><Lock size={18} /></span>
+                        ) : (
+                          <>
+                            {!estaAbierta && <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} className="hidden md:flex p-2 text-blue-600 hover:bg-blue-50 rounded-xl"><Unlock size={18} /></button>}
+                            <button onClick={(e) => eliminarCaja(e, caja.id)} className="p-2.5 lg:p-2 text-red-600 hover:bg-red-50 rounded-xl bg-red-50/50 border border-red-100 lg:border-transparent lg:bg-transparent flex-1 flex justify-center"><Trash2 size={18} /></button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {filaExpandida === caja.id && (
+                    <div className="bg-gray-50/80 border-t border-gray-200 p-3 md:p-6 shadow-inner">
+                      
+                      <div className="flex flex-col xl:flex-row gap-4 mb-4">
+                        <div className="flex-1 bg-white p-4 md:p-5 rounded-2xl border border-gray-200 shadow-sm">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                            <h4 className="font-black text-gray-800 flex items-center gap-2 text-base"><Package size={18} className="text-green-600"/> Resumen del Pedido</h4>
+                            
+                            <div className="flex gap-2 w-full sm:w-auto">
+                              <button onClick={() => copiarResumen(caja)} className="flex items-center justify-center p-2.5 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-xl transition-colors" title="Copiar al portapapeles">
+                                <Copy size={16} />
+                              </button>
+                              <button onClick={() => enviarResumenWhatsApp(caja)} className="flex items-center justify-center flex-1 sm:flex-initial gap-2 bg-green-500 text-white hover:bg-green-600 px-4 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-md">
+                                <Send size={16} /> Enviar por WhatsApp 📲
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                            {caja.detalle_caja.map((item: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                {item.plantas?.imagen_url ? <img src={item.plantas.imagen_url} className="w-12 h-12 object-cover rounded-lg border border-gray-200" /> : <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400"><ImageIcon size={20} /></div>}
+                                <div className="flex-1">
+                                  <p className="font-bold text-gray-800 text-sm line-clamp-1">{item.plantas?.nombre}</p>
+                                  <p className="text-xs text-gray-500 font-medium">{item.cantidad} x S/ {item.precio_vendido.toFixed(2)}</p>
+                                </div>
+                                <div className="font-black text-gray-800 text-sm bg-white px-2 py-1 rounded-md border border-gray-100 shadow-sm">S/ {(item.cantidad * item.precio_vendido).toFixed(2)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="w-full xl:w-80 bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-2xl p-5 h-fit shadow-sm">
+                          <h4 className="font-black text-blue-900 mb-4 flex items-center gap-2 text-base"><DollarSign size={18} className="text-blue-600"/> Finanzas</h4>
+                          <div className="space-y-2.5">
+                            <div className="flex justify-between text-sm text-gray-600 font-medium"><span>Costo Total:</span> <span className="text-gray-900">S/ {caja.totalCaja.toFixed(2)}</span></div>
+                            <div className="flex justify-between text-sm text-gray-600 font-medium"><span>Abonado:</span> <span className="text-blue-600 font-bold">- S/ {caja.totalAbonado.toFixed(2)}</span></div>
+                            <div className="pt-3 border-t border-blue-200/80 flex justify-between font-black text-lg items-center">
+                              <span className="text-gray-800 uppercase tracking-wide text-sm">Saldo Final</span>
+                              <span className={`px-3 py-1 rounded-lg ${caja.saldo > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>S/ {caja.saldo.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        <div className="bg-white p-4 md:p-5 rounded-2xl border border-gray-200 shadow-sm">
+                          <h4 className="font-black text-gray-800 mb-4 flex items-center gap-2 text-base"><MapPin size={18} className="text-red-500"/> Logística y Etiqueta</h4>
+                          
+                          {editandoEnvioId === caja.id ? (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-4 border-b border-gray-100">
+                                <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Nombre Recibe</label><input type="text" className="w-full p-2.5 text-sm font-semibold text-gray-800 rounded-xl border border-gray-200 focus:border-green-500 outline-none bg-gray-50" value={formEnvio.nombre_completo} onChange={(e) => setFormEnvio({...formEnvio, nombre_completo: e.target.value})} placeholder="Ej. Juan Pérez" /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">DNI</label><input type="text" maxLength={8} className="w-full p-2.5 text-sm font-semibold text-gray-800 rounded-xl border border-gray-200 focus:border-green-500 outline-none bg-gray-50 font-mono" value={formEnvio.dni} onChange={(e) => setFormEnvio({...formEnvio, dni: e.target.value.replace(/\D/g, '')})} placeholder="Obligatorio para agencia" /></div>
+                                <div className="sm:col-span-2"><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">WhatsApp / Celular</label><input type="text" className="w-full p-2.5 text-sm font-semibold text-gray-800 rounded-xl border border-gray-200 focus:border-green-500 outline-none bg-gray-50 font-mono" value={formEnvio.celular} onChange={(e) => setFormEnvio({...formEnvio, celular: e.target.value})} placeholder="999888777" /></div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'agencia'})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all border ${formEnvio.tipo_entrega === 'agencia' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-gray-500 border-gray-200'}`}><Building2 size={16}/> Agencia</button>
+                                <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'domicilio'})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all border ${formEnvio.tipo_entrega === 'domicilio' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-500 border-gray-200'}`}><Home size={16}/> Domicilio</button>
+                              </div>
+
+                              {formEnvio.tipo_entrega === 'agencia' ? (
+                                <div className="space-y-2.5 bg-blue-50/30 p-3 rounded-xl border border-blue-50">
+                                  <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-bold text-blue-900 bg-white outline-none" value={formEnvio.courier} onChange={(e) => setFormEnvio({...formEnvio, courier: e.target.value})}><option value="">Seleccione Empresa...</option>{empresasCourier.map(emp => <option key={emp} value={emp}>{emp}</option>)}</select>
+                                  <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-semibold text-gray-700 bg-white outline-none" value={formEnvio.agencia_departamento} onChange={(e) => { actualizarListasUbigeo(e.target.value); setFormEnvio({...formEnvio, agencia_departamento: e.target.value, agencia_provincia: '', agencia_distrito: ''}); }}><option value="">Departamento de destino...</option>{listaDepartamentos.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-semibold text-gray-700 bg-white outline-none disabled:opacity-50" disabled={!formEnvio.agencia_departamento} value={formEnvio.agencia_provincia} onChange={(e) => { actualizarListasUbigeo(formEnvio.agencia_departamento, e.target.value); setFormEnvio({...formEnvio, agencia_provincia: e.target.value, agencia_distrito: ''}); }}><option value="">Provincia...</option>{listaProvincias.map(p => <option key={p} value={p}>{p}</option>)}</select>
+                                    <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-semibold text-gray-700 bg-white outline-none disabled:opacity-50" disabled={!formEnvio.agencia_provincia} value={formEnvio.agencia_distrito} onChange={(e) => { setFormEnvio({...formEnvio, agencia_distrito: e.target.value}); buscarAgenciasPrevias(e.target.value); }}><option value="">Distrito...</option>{listaDistritos.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                  </div>
+                                  <input type="text" placeholder="Referencia de la Agencia (Opcional)" className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-semibold text-gray-700 bg-white outline-none" value={formEnvio.agencia_direccion} onChange={(e) => setFormEnvio({...formEnvio, agencia_direccion: e.target.value})} list="sugerenciasAgencias" />
+                                  <datalist id="sugerenciasAgencias">{agenciasSugeridas.map((agencia, i) => <option key={i} value={agencia} />)}</datalist>
+                                </div>
+                              ) : (
+                                <div className="space-y-2.5 bg-green-50/30 p-3 rounded-xl border border-green-50">
+                                  <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-green-500 font-semibold text-gray-700 bg-white outline-none" value={formEnvio.departamento} onChange={(e) => { actualizarListasUbigeo(e.target.value); setFormEnvio({...formEnvio, departamento: e.target.value, provincia: '', distrito: ''}); }}><option value="">Departamento del domicilio...</option>{listaDepartamentos.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-green-500 font-semibold text-gray-700 bg-white outline-none disabled:opacity-50" disabled={!formEnvio.departamento} value={formEnvio.provincia} onChange={(e) => { actualizarListasUbigeo(formEnvio.departamento, e.target.value); setFormEnvio({...formEnvio, provincia: e.target.value, distrito: ''}); }}><option value="">Provincia...</option>{listaProvincias.map(p => <option key={p} value={p}>{p}</option>)}</select>
+                                    <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-green-500 font-semibold text-gray-700 bg-white outline-none disabled:opacity-50" disabled={!formEnvio.provincia} value={formEnvio.distrito} onChange={(e) => setFormEnvio({...formEnvio, distrito: e.target.value})}><option value="">Distrito...</option>{listaDistritos.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                  </div>
+                                  <input type="text" placeholder="Dirección exacta, Calle, Mz, Lote..." className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-green-500 font-semibold text-gray-700 bg-white outline-none" value={formEnvio.direccion} onChange={(e) => setFormEnvio({...formEnvio, direccion: e.target.value})} />
+                                </div>
+                              )}
+                              
+                              <div className="flex gap-2 pt-2">
+                                <button onClick={() => setEditandoEnvioId(null)} className="w-1/3 bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors">Cancelar</button>
+                                <button onClick={() => guardarEnvio(caja)} disabled={cargando} className="w-2/3 bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 flex items-center justify-center gap-2 shadow-md"><Save size={18}/> Guardar Cambios</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-4">
+                              <div className="flex justify-between items-start">
+                                <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border ${caja.tipo_entrega === 'agencia' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                                  {caja.tipo_entrega === 'agencia' ? `🏢 AGENCIA: ${caja.courier || 'Pendiente'}` : '🏡 ENVÍO A DOMICILIO'}
+                                </span>
+                                <button onClick={() => iniciarEdicionEnvio(caja)} disabled={estaBloqueado} className={`p-2 rounded-xl transition-colors ${estaBloqueado ? 'text-gray-300 bg-gray-50' : 'text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-blue-50 border border-gray-200'}`}><Edit size={16}/></button>
+                              </div>
+                              
+                              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
+                                <p className="text-sm font-bold text-gray-800 flex items-center flex-wrap gap-2">
+                                  <User size={16} className="text-gray-400"/> 
+                                  {caja.clientes?.nombre_completo || 'No registró nombre'} 
+                                  {caja.clientes?.dni ? <span className="bg-white px-2 py-0.5 rounded border border-gray-200 text-xs text-gray-600">DNI: {caja.clientes.dni}</span> : ''}
+                                  {caja.clientes?.celular ? <span className="bg-white px-2 py-0.5 rounded border border-gray-200 text-xs text-gray-600 font-mono">📱 {caja.clientes.celular}</span> : ''}
+                                </p>
+                                <p className="text-sm text-gray-600 flex items-start gap-2">
+                                  <MapPin size={16} className="text-red-400 mt-0.5 shrink-0"/> 
+                                  <span className="leading-snug">
+                                    <strong className="block text-gray-800">{caja.tipo_entrega === 'agencia' ? [caja.agencia_distrito, caja.agencia_provincia, caja.agencia_departamento].filter(Boolean).join(', ') || 'Falta indicar Ubigeo' : [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ') || 'Falta indicar Ubigeo'}</strong>
+                                    {caja.tipo_entrega === 'agencia' && caja.agencia_direccion ? <span className="block mt-1 italic text-gray-500 text-xs">Ref: {caja.agencia_direccion}</span> : ''}
+                                    {caja.tipo_entrega === 'domicilio' && caja.clientes?.direccion ? <span className="block mt-1 italic text-gray-500 text-xs">Dir: {caja.clientes?.direccion}</span> : ''}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="bg-white p-4 md:p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col h-full">
+                          <h4 className="font-black text-gray-800 mb-4 flex items-center gap-2 text-base"><Truck size={18} className="text-purple-600"/> Estado del Paquete</h4>
+                          
+                          <div className="flex-1 flex flex-col justify-center gap-3">
+                            {estaAbierta && <p className="text-xs text-orange-600 font-bold text-center bg-orange-50 p-2 rounded-lg border border-orange-100 mb-2">⚠️ Debes cerrar la caja en el Panel en Vivo para poder cambiar los estados logísticos.</p>}
+                            
+                            <button onClick={() => cambiarEstadoEnvio(caja, 'proceso', estadoEnvio)} disabled={estaBloqueado} className={`flex items-center justify-center gap-2 w-full py-3.5 rounded-xl font-black text-sm transition-all border ${estadoEnvio === 'proceso' ? 'bg-gray-800 text-white border-gray-800 shadow-md' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'} ${estaBloqueado && 'opacity-50 cursor-not-allowed'}`}><Timer size={18} /> Paquete en Proceso</button>
+                            <button onClick={() => cambiarEstadoEnvio(caja, 'listo', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center gap-2 w-full py-3.5 rounded-xl font-black text-sm transition-all border ${estadoEnvio === 'listo' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><PackageCheck size={18} /> Listo para la Agencia</button>
+                            <button onClick={() => cambiarEstadoEnvio(caja, 'enviado', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center gap-2 w-full py-4 rounded-xl font-black text-sm transition-all border ${estadoEnvio === 'enviado' ? 'bg-purple-600 text-white border-purple-600 shadow-lg scale-[1.02]' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><Truck size={20} /> {estaBloqueado ? '✅ PEDIDO ENVIADO' : 'MARCAR COMO ENVIADO'}</button>
+                            
+                            <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                              {!estaAbierta && !estaBloqueado && (
+                                <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} className="flex-1 py-3 bg-white text-blue-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-blue-200 hover:bg-blue-50 shadow-sm"><Unlock size={16}/> Editar Caja</button>
+                              )}
+                              {!estaBloqueado && (
+                                <button onClick={(e) => eliminarCaja(e, caja.id)} className="flex-1 py-3 bg-white text-red-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-50 shadow-sm"><Trash2 size={16}/> Borrar</button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-20 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+              <Package size={48} className="mb-4 text-gray-300"/>
+              <p className="text-lg font-bold">{cargando ? 'Cargando logística...' : 'No hay pedidos con estos filtros'}</p>
+            </div>
           )}
         </div>
       </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="w-full">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs md:text-sm">
-                <th className="p-3 md:p-4 font-semibold w-8 md:w-10"></th>
-                <th className="hidden lg:table-cell p-3 md:p-4 font-semibold">Fecha</th>
-                <th className="p-3 md:p-4 font-semibold">Cliente y Estado</th>
-                <th className="hidden md:table-cell p-3 md:p-4 font-semibold text-center">Destino</th>
-                <th className="hidden lg:table-cell p-3 md:p-4 font-semibold text-center">Total</th>
-                <th className="hidden lg:table-cell p-3 md:p-4 font-semibold text-center">Cobro</th>
-                <th className="hidden md:table-cell p-3 md:p-4 font-semibold text-center">Logística</th>
-                <th className="p-3 md:p-4 font-semibold text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {cajasFiltradas.length > 0 ? (
-                // Se aplicó (caja: any) explícitamente
-                cajasFiltradas.map((caja: any) => {
-                  const fecha = new Date(caja.created_at);
-                  const dia = fecha.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
-                  
-                  const estaPagado = caja.saldo <= 0 && caja.totalCaja > 0;
-                  const estaAbierta = caja.estado === 'abierta'; 
-                  const estadoEnvio = caja.estado_envio || 'proceso';
-                  const estaBloqueado = estadoEnvio === 'enviado'; 
-
-                  return (
-                    <React.Fragment key={caja.id}>
-                      <tr className={`hover:bg-green-50/30 transition-colors cursor-pointer ${estaBloqueado ? 'bg-gray-50/50' : ''}`} onClick={() => toggleFila(caja)}>
-                        <td className="p-3 md:p-4 text-gray-400">{filaExpandida === caja.id ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}</td>
-                        <td className="hidden lg:table-cell p-3 md:p-4 font-semibold text-gray-800 text-sm whitespace-nowrap">{dia}</td>
-                        
-                        <td className="p-3 md:p-4">
-                          <span className="font-bold text-green-700 bg-green-50 px-2 py-1 rounded-lg text-sm whitespace-nowrap">@{caja.clientes?.usuario_tiktok}</span>
-                          
-                          <div className="block lg:hidden mt-2 space-y-1">
-                            <p className="text-[10px] text-gray-400 font-semibold">{dia}</p>
-                            <div className="flex flex-wrap gap-1">
-                              {estaPagado ? (
-                                <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">Cobrado</span>
-                              ) : (
-                                <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">Falta S/{caja.saldo.toFixed(2)}</span>
-                              )}
-                              {estadoEnvio === 'proceso' && <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">En Proceso</span>}
-                              {estadoEnvio === 'listo' && <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">Listo Enviar</span>}
-                              {estadoEnvio === 'enviado' && <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">Enviado</span>}
-                            </div>
-                          </div>
-
-                          {estaAbierta && <span className="block mt-1 text-[10px] text-blue-500 font-bold uppercase tracking-wider">🔴 Editando...</span>}
-                        </td>
-                        
-                        <td className="hidden md:table-cell p-3 md:p-4 text-center">
-                          <div className="flex flex-col items-center justify-center text-xs">
-                            {caja.tipo_entrega === 'agencia' ? (
-                              <>
-                                <span className="font-bold text-blue-700 flex items-center gap-1"><Building2 size={12}/> {caja.courier || 'Agencia'}</span>
-                                <span className="text-gray-500 max-w-[120px] truncate" title={[caja.agencia_distrito, caja.agencia_provincia].filter(Boolean).join(', ')}>
-                                  {[caja.agencia_distrito, caja.agencia_provincia].filter(Boolean).join(', ') || 'Sin destino'}
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="font-bold text-green-700 flex items-center gap-1"><Home size={12}/> Domicilio</span>
-                                <span className="text-gray-500 max-w-[120px] truncate" title={[caja.clientes?.distrito, caja.clientes?.provincia].filter(Boolean).join(', ')}>
-                                  {[caja.clientes?.distrito, caja.clientes?.provincia].filter(Boolean).join(', ') || 'Sin destino'}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className={`hidden lg:table-cell p-3 md:p-4 text-center font-bold text-gray-700 whitespace-nowrap`}>S/ {caja.totalCaja.toFixed(2)}</td>
-                        
-                        <td className="hidden lg:table-cell p-3 md:p-4">
-                          <div className="flex flex-col items-center justify-center">
-                            {estaPagado ? (
-                              <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full w-full max-w-[100px] text-center"><CheckCircle2 size={14} className="inline mr-1"/> OK</span>
-                            ) : (
-                              <span className="text-xs font-bold text-orange-700 bg-orange-100 px-3 py-1.5 rounded-full w-full max-w-[120px] text-center whitespace-nowrap">Falta S/{caja.saldo.toFixed(2)}</span>
-                            )}
-                          </div>
-                        </td>
-                        
-                        <td className="hidden md:table-cell p-3 md:p-4 text-center">
-                          {estadoEnvio === 'proceso' && <span className="text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full whitespace-nowrap"><Timer size={14} className="inline mb-0.5 mr-1"/> Proceso</span>}
-                          {estadoEnvio === 'listo' && <span className="text-xs font-bold text-blue-700 bg-blue-100 px-3 py-1.5 rounded-full whitespace-nowrap"><PackageCheck size={14} className="inline mb-0.5 mr-1"/> Listo</span>}
-                          {estadoEnvio === 'enviado' && <span className="text-xs font-bold text-purple-700 bg-purple-100 px-3 py-1.5 rounded-full whitespace-nowrap"><Truck size={14} className="inline mb-0.5 mr-1"/> Enviado</span>}
-                        </td>
-                        
-                        <td className="p-3 md:p-4">
-                          <div className="flex justify-center gap-1 md:gap-2">
-                            <button onClick={(e) => abrirWhatsApp(e, caja.clientes?.celular)} title="Contactar por WhatsApp" className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"><MessageCircle size={18} /></button>
-                            <button onClick={(e) => generarEtiquetaPDF(e, caja)} title="Generar Etiqueta PDF A5" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"><Printer size={18} /></button>
-                            
-                            {estaBloqueado ? (
-                              <span className="p-2 text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed" title="Pedido bloqueado"><Lock size={18} /></span>
-                            ) : (
-                              <>
-                                {!estaAbierta && <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} title="Editar en Panel" className="hidden md:block p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Unlock size={18} /></button>}
-                                <button onClick={(e) => eliminarCaja(e, caja.id)} title="Eliminar Caja" className="hidden md:block p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} /></button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-
-                      {filaExpandida === caja.id && (
-                        <tr>
-                          <td colSpan={8} className="bg-gray-50/50 p-0 border-b border-gray-100">
-                            <div className="p-3 md:p-6 m-2 md:m-4 bg-white rounded-2xl shadow-sm border border-gray-200">
-                              
-                              <div className="flex flex-col xl:flex-row gap-6 md:gap-8 mb-6 md:mb-8">
-                                <div className="flex-1">
-                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-                                    <h4 className="font-bold text-gray-800 flex items-center gap-2"><Package size={20} className="text-green-600"/> Resumen de Plantas</h4>
-                                    
-                                    <button onClick={() => enviarResumenWhatsApp(caja)} className="flex items-center justify-center w-full sm:w-auto gap-2 bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-sm">
-                                      <Send size={16} /> Enviar por WhatsApp 📲
-                                    </button>
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                                    {caja.detalle_caja.map((item: any, idx: number) => (
-                                      <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                        {item.plantas?.imagen_url ? <img src={item.plantas.imagen_url} className="w-12 h-12 md:w-14 md:h-14 object-cover rounded-lg border border-gray-200" /> : <div className="w-12 h-12 md:w-14 md:h-14 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400"><ImageIcon size={24} /></div>}
-                                        <div className="flex-1">
-                                          <p className="font-bold text-gray-800 text-sm line-clamp-1">{item.plantas?.nombre}</p>
-                                          <p className="text-xs text-gray-500">{item.cantidad} x S/ {item.precio_vendido.toFixed(2)}</p>
-                                        </div>
-                                        <div className="font-black text-gray-700 text-sm md:text-base">S/ {(item.cantidad * item.precio_vendido).toFixed(2)}</div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                <div className="w-full xl:w-72 bg-blue-50/50 border border-blue-100 rounded-2xl p-4 md:p-5 h-fit">
-                                  <h4 className="font-bold text-blue-900 mb-4 flex items-center gap-2"><DollarSign size={20} className="text-blue-600"/> Detalle de Pago</h4>
-                                  <div className="space-y-3">
-                                    <div className="flex justify-between text-sm text-gray-600"><span>Total:</span> <span>S/ {caja.totalCaja.toFixed(2)}</span></div>
-                                    <div className="flex justify-between text-sm text-gray-600"><span>Abonado:</span> <span className="text-blue-600 font-bold">- S/ {caja.totalAbonado.toFixed(2)}</span></div>
-                                    <div className="pt-3 border-t border-blue-200 flex justify-between font-black text-lg">
-                                      <span className="text-gray-800">Saldo Final:</span>
-                                      <span className={caja.saldo > 0 ? 'text-orange-600' : 'text-green-600'}>S/ {caja.saldo.toFixed(2)}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="border-t border-gray-100 pt-6 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-                                
-                                <div>
-                                  <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><MapPin size={18} className="text-red-500"/> Datos del Cliente y Envío</h4>
-                                  
-                                  {editandoEnvioId === caja.id ? (
-                                    <div className="space-y-4 bg-gray-50 p-4 md:p-5 rounded-xl border border-gray-200 animate-fade-in">
-                                      
-                                      <div className="space-y-3 pb-4 border-b border-gray-200">
-                                        <h5 className="text-xs font-black text-gray-500 uppercase tracking-wider flex items-center gap-1"><User size={14}/> 1. Información Personal</h5>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                          <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-1">Nombre Completo</label>
-                                            <input type="text" className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.nombre_completo} onChange={(e) => setFormEnvio({...formEnvio, nombre_completo: e.target.value})} placeholder="Ej. Juan Pérez" />
-                                          </div>
-                                          <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-1">DNI <span className="text-gray-400 font-normal">(Opcional)</span></label>
-                                            <input type="text" maxLength={8} className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.dni} onChange={(e) => setFormEnvio({...formEnvio, dni: e.target.value.replace(/\D/g, '')})} placeholder="8 dígitos" />
-                                          </div>
-                                          <div className="sm:col-span-2">
-                                            <label className="block text-xs font-bold text-gray-600 mb-1">Celular / WhatsApp <span className="text-gray-400 font-normal">(Opcional)</span></label>
-                                            <input type="text" className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.celular} onChange={(e) => setFormEnvio({...formEnvio, celular: e.target.value})} placeholder="Ej. 999888777" />
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <h5 className="text-xs font-black text-gray-500 uppercase tracking-wider mt-2">2. Modalidad y Destino</h5>
-                                      <div className="flex gap-2">
-                                        <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'agencia'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm transition-all border ${formEnvio.tipo_entrega === 'agencia' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}><Building2 size={16}/> Agencia</button>
-                                        <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'domicilio'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm transition-all border ${formEnvio.tipo_entrega === 'domicilio' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}><Home size={16}/> Domicilio</button>
-                                      </div>
-
-                                      {formEnvio.tipo_entrega === 'agencia' ? (
-                                        <div className="space-y-3 pt-2">
-                                          <label className="block text-xs font-bold text-gray-600">Empresa Courier</label>
-                                          <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 font-semibold" value={formEnvio.courier} onChange={(e) => setFormEnvio({...formEnvio, courier: e.target.value})}>
-                                            <option value="">Seleccione Empresa...</option>
-                                            {empresasCourier.map((emp: string) => <option key={emp} value={emp}>{emp}</option>)}
-                                          </select>
-
-                                          <label className="block text-xs font-bold text-gray-600 mt-2">Destino de la Agencia (Ubigeo)</label>
-                                          <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500" value={formEnvio.agencia_departamento} onChange={(e) => {
-                                            actualizarListasUbigeo(e.target.value);
-                                            setFormEnvio({...formEnvio, agencia_departamento: e.target.value, agencia_provincia: '', agencia_distrito: ''});
-                                          }}>
-                                            <option value="">Departamento...</option>
-                                            {listaDepartamentos.map((d: string) => <option key={d} value={d}>{d}</option>)}
-                                          </select>
-                                          <div className="grid grid-cols-2 gap-2">
-                                            <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 disabled:opacity-50" disabled={!formEnvio.agencia_departamento} value={formEnvio.agencia_provincia} onChange={(e) => {
-                                              actualizarListasUbigeo(formEnvio.agencia_departamento, e.target.value);
-                                              setFormEnvio({...formEnvio, agencia_provincia: e.target.value, agencia_distrito: ''});
-                                            }}>
-                                              <option value="">Provincia...</option>
-                                              {listaProvincias.map((p: string) => <option key={p} value={p}>{p}</option>)}
-                                            </select>
-                                            <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 disabled:opacity-50" disabled={!formEnvio.agencia_provincia} value={formEnvio.agencia_distrito} onChange={(e) => {
-                                              setFormEnvio({...formEnvio, agencia_distrito: e.target.value});
-                                              buscarAgenciasPrevias(e.target.value);
-                                            }}>
-                                              <option value="">Distrito...</option>
-                                              {listaDistritos.map((d: string) => <option key={d} value={d}>{d}</option>)}
-                                            </select>
-                                          </div>
-
-                                          <label className="block text-xs font-bold text-gray-600 mt-2">Nombre o Dirección de la Agencia</label>
-                                          <input type="text" placeholder="Ej. Agencia Principal..." className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500" value={formEnvio.agencia_direccion} onChange={(e) => setFormEnvio({...formEnvio, agencia_direccion: e.target.value})} list="sugerenciasAgencias" />
-                                          <datalist id="sugerenciasAgencias">
-                                            {agenciasSugeridas.map((agencia: string, i: number) => <option key={i} value={agencia} />)}
-                                          </datalist>
-                                        </div>
-                                      ) : (
-                                        <div className="space-y-3 pt-2">
-                                          <label className="block text-xs font-bold text-gray-600 mt-2">Ubigeo del Domicilio del Cliente</label>
-                                          <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.departamento} onChange={(e) => {
-                                            actualizarListasUbigeo(e.target.value);
-                                            setFormEnvio({...formEnvio, departamento: e.target.value, provincia: '', distrito: ''});
-                                          }}>
-                                            <option value="">Departamento...</option>
-                                            {listaDepartamentos.map((d: string) => <option key={d} value={d}>{d}</option>)}
-                                          </select>
-                                          <div className="grid grid-cols-2 gap-2">
-                                            <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 disabled:opacity-50" disabled={!formEnvio.departamento} value={formEnvio.provincia} onChange={(e) => {
-                                              actualizarListasUbigeo(formEnvio.departamento, e.target.value);
-                                              setFormEnvio({...formEnvio, provincia: e.target.value, distrito: ''});
-                                            }}>
-                                              <option value="">Provincia...</option>
-                                              {listaProvincias.map((p: string) => <option key={p} value={p}>{p}</option>)}
-                                            </select>
-                                            <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 disabled:opacity-50" disabled={!formEnvio.provincia} value={formEnvio.distrito} onChange={(e) => setFormEnvio({...formEnvio, distrito: e.target.value})}>
-                                              <option value="">Distrito...</option>
-                                              {listaDistritos.map((d: string) => <option key={d} value={d}>{d}</option>)}
-                                            </select>
-                                          </div>
-                                          
-                                          <label className="block text-xs font-bold text-gray-600 mt-2">Dirección Exacta</label>
-                                          <input type="text" placeholder="Ej. Av. Los Pinos 123..." className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.direccion} onChange={(e) => setFormEnvio({...formEnvio, direccion: e.target.value})} />
-                                        </div>
-                                      )}
-                                      
-                                      <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
-                                        <button onClick={() => setEditandoEnvioId(null)} className="text-sm font-semibold text-gray-500 hover:text-gray-700 px-4 py-2 rounded-lg transition-colors">Cancelar</button>
-                                        <button onClick={() => guardarEnvio(caja)} disabled={cargando} className="bg-green-600 text-white text-sm font-bold px-4 md:px-5 py-2.5 rounded-lg hover:bg-green-700 flex items-center gap-2 shadow-md"><Save size={16}/> Guardar</button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-50 p-4 md:p-5 rounded-xl border border-gray-100 gap-3">
-                                      <div className="flex flex-col">
-                                        <span className={`text-[10px] font-black uppercase tracking-wider mb-2 px-2 py-0.5 rounded-full w-fit ${caja.tipo_entrega === 'agencia' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                          {caja.tipo_entrega === 'agencia' ? `🏢 AGENCIA: ${caja.courier || 'Pendiente'}` : '🏡 A DOMICILIO'}
-                                        </span>
-                                        
-                                        {(caja.clientes?.nombre_completo || caja.clientes?.dni || caja.clientes?.celular) && (
-                                          <span className="text-xs text-gray-600 mb-1 flex items-center flex-wrap gap-1 font-semibold">
-                                            <User size={12}/> {caja.clientes?.nombre_completo || 'Sin nombre'} {caja.clientes?.dni ? `(DNI: ${caja.clientes.dni})` : ''} {caja.clientes?.celular ? `(Cel: ${caja.clientes.celular})` : ''}
-                                          </span>
-                                        )}
-
-                                        <span className="text-sm font-bold text-gray-800 mt-1">
-                                          {caja.tipo_entrega === 'agencia' 
-                                            ? [caja.agencia_distrito, caja.agencia_provincia, caja.agencia_departamento].filter(Boolean).join(', ') || 'Ubigeo no configurado'
-                                            : [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ') || 'Ubigeo no configurado'
-                                          }
-                                        </span>
-                                        
-                                        {caja.tipo_entrega === 'agencia' && caja.agencia_direccion && (
-                                          <span className="text-xs text-gray-500 mt-1 italic">📌 Ref: {caja.agencia_direccion}</span>
-                                        )}
-                                        {caja.tipo_entrega === 'domicilio' && caja.clientes?.direccion && (
-                                          <span className="text-xs text-gray-500 mt-1 italic">📌 Dir: {caja.clientes?.direccion}</span>
-                                        )}
-                                      </div>
-                                      <button onClick={() => iniciarEdicionEnvio(caja)} disabled={estaBloqueado} className={`p-3 bg-white w-full sm:w-auto flex justify-center rounded-xl shadow-sm border border-gray-200 transition-colors ${estaBloqueado ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`} title="Editar datos y ubicación"><Edit size={18}/></button>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div>
-                                  <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Truck size={18} className="text-purple-600"/> Estado del Paquete</h4>
-                                  <div className="flex flex-col gap-2">
-                                    {estaAbierta && <p className="text-xs text-orange-600 font-semibold mb-1">⚠️ Cierra la caja en el Panel en Vivo para despachar.</p>}
-                                    
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-3 gap-3">
-                                      <button onClick={() => cambiarEstadoEnvio(caja, 'proceso', estadoEnvio)} disabled={estaBloqueado} className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl font-semibold text-xs md:text-sm transition-all ${estadoEnvio === 'proceso' ? 'bg-gray-800 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} ${estaBloqueado && 'opacity-50 cursor-not-allowed'}`}><Timer size={16} /> Proceso</button>
-                                      <button onClick={() => cambiarEstadoEnvio(caja, 'listo', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl font-semibold text-xs md:text-sm transition-all ${estadoEnvio === 'listo' ? 'bg-blue-600 text-white shadow-md' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><PackageCheck size={16} /> Listo</button>
-                                      <button onClick={() => cambiarEstadoEnvio(caja, 'enviado', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl font-semibold text-xs md:text-sm transition-all sm:col-span-2 lg:col-span-1 xl:col-span-1 ${estadoEnvio === 'enviado' ? 'bg-purple-600 text-white shadow-md' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><Truck size={16} /> {estaBloqueado ? 'Enviado' : 'Enviar'}</button>
-                                    </div>
-                                    
-                                    <div className="md:hidden flex gap-2 mt-4 pt-4 border-t border-gray-100">
-                                      {!estaAbierta && !estaBloqueado && (
-                                        <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} className="flex-1 p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1"><Unlock size={14}/> Reabrir Panel</button>
-                                      )}
-                                      {!estaBloqueado && (
-                                        <button onClick={(e) => eliminarCaja(e, caja.id)} className="flex-1 p-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1"><Trash2 size={14}/> Eliminar</button>
-                                      )}
-                                    </div>
-
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-400">
-                    {cargando ? 'Cargando pedidos...' : 'No se encontraron pedidos con estos filtros.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      
+      {!mostrarAntiguos && !fechaInicio && !fechaFin && !busqueda && (
+        <div className="mt-6 flex justify-center">
+          <button onClick={() => setMostrarAntiguos(true)} className="text-sm font-black text-gray-500 hover:text-green-700 bg-white border border-gray-200 px-8 py-3.5 rounded-2xl shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+            Cargar historial antiguo (más de 7 días)
+          </button>
         </div>
-        
-        {!mostrarAntiguos && !fechaInicio && !fechaFin && !busqueda && (
-          <div className="bg-gray-50 border-t border-gray-100 p-4 text-center">
-            <button onClick={() => setMostrarAntiguos(true)} className="text-sm font-bold text-gray-500 hover:text-green-600 bg-white border border-gray-200 px-6 py-2.5 rounded-xl shadow-sm transition-colors">
-              Cargar pedidos anteriores (más de 7 días)
-            </button>
+      )}
+
+      {/* ✅ MODAL DE DIÁLOGO PERSONALIZADO (Reemplaza a los window.alert y window.confirm feos) */}
+      {dialogo.abierto && (
+        <div className="fixed inset-0 bg-gray-900/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl p-6 md:p-8 text-center border border-gray-100">
+            
+            <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-5 shadow-inner ${dialogo.tipo === 'alerta' ? 'bg-blue-50 text-blue-500' : 'bg-orange-50 text-orange-500'}`}>
+               {dialogo.tipo === 'alerta' ? <Info size={32} /> : <AlertTriangle size={32} />}
+            </div>
+            
+            <h3 className="text-xl font-black text-gray-800 mb-3 tracking-tight">
+              {dialogo.tipo === 'alerta' ? 'Aviso Importante' : 'Confirmación'}
+            </h3>
+            
+            <p className="text-sm md:text-base text-gray-600 mb-8 whitespace-pre-line font-medium leading-relaxed">
+              {dialogo.mensaje}
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              {(dialogo.tipo === 'confirmar' || dialogo.tipo === 'opciones') && (
+                <button
+                  onClick={() => {
+                    setDialogo({ ...dialogo, abierto: false });
+                    if (dialogo.accionCancelar) dialogo.accionCancelar();
+                  }}
+                  className="flex-1 py-3.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors text-sm shadow-sm"
+                >
+                  {dialogo.textoCancelar || 'Cancelar'}
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setDialogo({ ...dialogo, abierto: false });
+                  if (dialogo.accionConfirmar) dialogo.accionConfirmar();
+                }}
+                className={`flex-1 py-3.5 px-4 font-bold rounded-xl transition-colors text-sm shadow-md text-white ${dialogo.tipo === 'alerta' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}
+              >
+                {dialogo.textoConfirmar || 'Aceptar'}
+              </button>
+            </div>
+
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
     </div>
   );
 }
