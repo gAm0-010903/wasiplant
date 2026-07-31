@@ -115,7 +115,7 @@ export default function Dashboard() {
     <div className="min-h-screen p-6 md:p-8 font-sans text-gray-800 bg-gray-50/30">
       <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-green-700 mb-1">📊 Panel de Estadísticas</h1>
+          <h1 className="text-3xl font-bold text-green-700 mb-1">Resumen de pedidos</h1>
           <p className="text-gray-500">Resumen financiero y rendimiento de ventas</p>
         </div>
 

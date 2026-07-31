@@ -296,7 +296,7 @@ export default function Historial() {
             .footer { text-align: center; font-size: 13px; color: #666; border-top: 2px dashed #ccc; padding-top: 15px; }
           </style></head><body>
           <div class="etiqueta-a5">
-            <div class="header"><h1>WasiPlant</h1><p>Envío Prioritario 🌿</p></div>
+            <div class="header"><h1>WasiPlant</h1><p> Productos frágiles 🌿</p></div>
             <div class="seccion destacado"><span class="label">Destinatario</span><div class="valor-grande">${nombre}</div><div class="valor-mediano">📱 Celular: ${celular} <br> 🪪 DNI: ${dni}</div></div>
             <div class="seccion"><span class="label">Datos de Envío</span><div class="valor-mediano"><strong>[ ${modalidad.toUpperCase()} ]</strong><br><br>${destino || 'Pendiente de confirmación'}</div></div>
             <div class="info-grid">
@@ -304,7 +304,7 @@ export default function Historial() {
               <div class="info-box"><div class="label">Fecha / Bultos</div><div class="val">${fechaFormateada} / ${caja.cantidadPlantas} plantas</div></div>
             </div>
             <div class="codigo-barras"></div>
-            <div class="footer"><strong>¡Cuidado! Plantas Vivas 💚 🌱</strong><br>Gracias por tu compra en TikTok: @wasiplant</div>
+            <div class="footer"><strong>¡Cuidado! Plantas Vivas 💚 🌱</strong><br>Gracias por tu compra buscanos en redes como: @wasiplant</div>
           </div>
           <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 1000); };</script>
         </body></html>
@@ -316,7 +316,7 @@ export default function Historial() {
   const reabrirCaja = async (e: React.MouseEvent, idCaja: string, idCliente: string, usuario: string) => {
     e.stopPropagation(); 
     setDialogo({
-      abierto: true, tipo: 'confirmar', mensaje: `¿Devolver el pedido de @${usuario} al Panel en Vivo para editarlo?`, textoConfirmar: 'Sí, Reabrir',
+      abierto: true, tipo: 'confirmar', mensaje: `¿Poner el pedido de @${usuario} en el carrito de espera?`, textoConfirmar: 'Sí, Reabrir',
       accionConfirmar: async () => {
         setCargando(true);
         await supabase.from('cajas').update({ estado: 'cerrada' }).eq('cliente_id', idCliente).eq('estado', 'abierta').neq('id', idCaja);

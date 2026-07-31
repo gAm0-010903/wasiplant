@@ -359,7 +359,7 @@ export default function Home() {
             <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col items-center justify-center py-12">
               <div className="bg-gray-50 w-full rounded-3xl p-8 text-center border border-gray-100 border-dashed">
                 <Clock className="mx-auto text-gray-300 mb-4" size={48} />
-                <h3 className="text-gray-500 font-black mb-2 text-lg">Pedidos en espera</h3>
+                <h3 className="text-gray-500 font-black mb-2 text-lg">Carrito en espera</h3>
                 <p className="text-sm text-gray-400 mb-8 font-medium">Selccione a un cliente para empezar a registrar su pedido actual.</p>
                 
                 {cajasPendientes.length > 0 && (
@@ -391,7 +391,7 @@ export default function Home() {
             <div className="bg-white p-5 md:p-8 rounded-[2rem] shadow-lg border border-gray-100 animate-in slide-in-from-right-8 duration-300">
               
               <div className="flex flex-col mb-6 pb-5 border-b border-gray-100">
-                <span className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Caja Abierta</span>
+                <span className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Carrito Abierto</span>
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-black text-green-700 truncate pr-2">@{clienteActual.usuario_tiktok}</h2>
                 </div>
@@ -479,7 +479,7 @@ export default function Home() {
               <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-5 md:p-6 text-white shadow-xl mb-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10"><DollarSign size={80}/></div>
                 
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2"><DollarSign size={14}/> Resumen Financiero</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2"><DollarSign size={14}/> Resumen de pago</h3>
                 
                 <div className="space-y-2 mb-4 relative z-10">
                   <div className="flex justify-between text-sm font-medium text-gray-300"><span>Subtotal:</span><span>S/ {totalCaja.toFixed(2)}</span></div>
@@ -513,10 +513,10 @@ export default function Home() {
               
               <div className="flex flex-col gap-3">
                 <button onClick={enviarPorWhatsApp} disabled={cargando} className="w-full bg-[#25D366] hover:bg-[#1ebd5a] text-white font-bold py-4 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-md transition-all hover:-translate-y-0.5">
-                  <MessageCircle size={22} /> WhatsApp al Cliente
+                  <MessageCircle size={22} /> WhatsApp del Cliente
                 </button>
                 <button onClick={cerrarCaja} disabled={cargando} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-black py-4 px-4 rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2">
-                  <CheckCircle2 size={20}/> Cerrar Caja y Despachar
+                  <CheckCircle2 size={20}/> Cerrar carrito y alistar pedido
                 </button>
               </div>
 
