@@ -1,8 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
-import { Search, Calendar, Package, DollarSign, CheckCircle2, Clock, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Copy, Building2, Home, User, Printer, MessageCircle, Phone, Send } from 'lucide-react';
+// ✅ CORRECCIÓN 1: Ajuste de la ruta de supabase (solo un nivel hacia atrás si lib está dentro de app)
+// Si lib está fuera de app, usa '../../lib/supabase'. Si está dentro de app, usa '../lib/supabase'.
+// He usado '../lib/supabase' asumiendo que lib está en el directorio raíz de la app.
+import { supabase } from '../lib/supabase';
+import { Search, Calendar, Package, DollarSign, CheckCircle2, Clock, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Building2, Home, User, Printer, MessageCircle, Send } from 'lucide-react';
 
 export default function Historial() {
   const [cajas, setCajas] = useState<any[]>([]);
@@ -72,7 +75,8 @@ export default function Historial() {
           let { tipo_entrega, courier, agencia_departamento, agencia_provincia, agencia_distrito, agencia_direccion } = caja;
 
           if (!agencia_departamento && !courier) {
-            const cajaAnterior = data.find(c => c.cliente_id === caja.cliente_id && c.id !== caja.id && (c.agencia_departamento || c.courier));
+            // ✅ CORRECCIÓN 2: Le decimos a TypeScript que 'c' es de tipo 'any'
+            const cajaAnterior = data.find((c: any) => c.cliente_id === caja.cliente_id && c.id !== caja.id && (c.agencia_departamento || c.courier));
 
             if (cajaAnterior) {
               tipo_entrega = cajaAnterior.tipo_entrega || 'agencia';
@@ -115,13 +119,8 @@ export default function Historial() {
   };
 
   const toggleFila = (caja: any) => {
-    if (filaExpandida === caja.id) {
-      setFilaExpandida(null);
-      setEditandoEnvioId(null);
-    } else {
-      setFilaExpandida(caja.id);
-      setEditandoEnvioId(null);
-    }
+    setFilaExpandida(filaExpandida === caja.id ? null : caja.id);
+    setEditandoEnvioId(null);
   };
 
   const iniciarEdicionEnvio = async (caja: any) => {
@@ -196,7 +195,6 @@ export default function Historial() {
     setCargando(false);
   };
 
-  // NUEVO: Función optimizada que te lleva directo a WhatsApp
   const enviarResumenWhatsApp = async (caja: any) => {
     const nombre = caja.clientes?.nombre_completo || `@${caja.clientes?.usuario_tiktok}`;
     const celular = caja.clientes?.celular;
@@ -232,20 +230,17 @@ export default function Historial() {
     
     texto += `\n¡Muchísimas gracias por tu preferencia! 💚`;
     
-    // Lo copiamos al portapapeles por seguridad (fondo)
     try {
       await navigator.clipboard.writeText(texto);
     } catch (err) {
       console.log("No se pudo copiar el texto automáticamente.");
     }
 
-    // Lógica para abrir WhatsApp inteligentemente
     if (celular) {
       const numeroLimpio = celular.replace(/\D/g, '');
       const numeroFinal = numeroLimpio.startsWith('51') ? numeroLimpio : `51${numeroLimpio}`;
       window.open(`https://wa.me/${numeroFinal}?text=${encodeURIComponent(texto)}`, '_blank');
     } else {
-      // Si no hay celular registrado, abre la app para que escojas a quién mandárselo
       window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
     }
   };
@@ -475,359 +470,313 @@ export default function Historial() {
   });
 
   return (
-    <div className="min-h-screen p-4 md:p-8 font-sans text-gray-800">
+    <div className="min-h-screen p-3 md:p-8 font-sans text-gray-800 bg-gray-50/30">
       <header className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-green-700">🕒 Historial de Ventas</h1>
-        <p className="text-sm md:text-base text-gray-500">Gestión de pedidos, cobranzas y logística inteligente</p>
+        <h1 className="text-2xl md:text-3xl font-black text-green-700 tracking-tight">🕒 Historial Logístico</h1>
+        <p className="text-sm md:text-base text-gray-500 font-medium">Gestión de envíos y cobranzas adaptada a móviles</p>
       </header>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-        <div className="relative w-full md:col-span-5">
-          <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
-          <input type="text" placeholder="Buscar cliente o distrito..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 outline-none transition-all text-sm" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+      {/* BUSCADOR */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 mb-6 grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="relative w-full lg:col-span-5">
+          <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
+          <input type="text" placeholder="Buscar cliente, DNI, o distrito..." className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 outline-none text-sm font-medium bg-gray-50/50" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
         </div>
         
-        <div className="md:col-span-7 flex flex-wrap xl:flex-nowrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1 flex-1">
-            <Calendar className="text-gray-400" size={18} />
+        <div className="lg:col-span-7 flex flex-col sm:flex-row items-center gap-3">
+          <div className="flex items-center gap-3 bg-gray-50/50 border border-gray-200 rounded-xl px-4 py-2 w-full sm:flex-1">
+            <Calendar className="text-green-600" size={18} />
             <div className="flex flex-col w-full">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Desde</span>
-              <input type="date" className="bg-transparent border-none outline-none text-sm text-gray-700 py-1 w-full" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Desde</span>
+              <input type="date" className="bg-transparent border-none outline-none text-sm font-semibold text-gray-700 w-full" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1 flex-1">
-            <Calendar className="text-gray-400" size={18} />
+          <div className="flex items-center gap-3 bg-gray-50/50 border border-gray-200 rounded-xl px-4 py-2 w-full sm:flex-1">
+            <Calendar className="text-green-600" size={18} />
             <div className="flex flex-col w-full">
-              <span className="text-[10px] font-bold text-gray-400 uppercase">Hasta</span>
-              <input type="date" className="bg-transparent border-none outline-none text-sm text-gray-700 py-1 w-full" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} />
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Hasta</span>
+              <input type="date" className="bg-transparent border-none outline-none text-sm font-semibold text-gray-700 w-full" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} />
             </div>
           </div>
-          {(fechaInicio || fechaFin || busqueda) && (
-            <button onClick={() => {setFechaInicio(''); setFechaFin(''); setBusqueda('');}} className="text-xs font-bold text-red-500 hover:text-red-700 underline px-2 w-full md:w-auto text-center mt-2 md:mt-0">Limpiar Filtros</button>
+        </div>
+      </div>
+
+      {/* ✅ SOLUCIÓN: CONTENEDOR 100% RESPONSIVE (DIVS, NO TABLAS) */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+        
+        {/* Cabecera Desktop (Oculta en móviles) */}
+        <div className="hidden lg:flex items-center p-4 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+          <div className="w-12 text-center"></div>
+          <div className="w-28">Fecha</div>
+          <div className="flex-1">Cliente y Destino</div>
+          <div className="w-32 text-center">Total</div>
+          <div className="w-32 text-center">Estado Pago</div>
+          <div className="w-36 text-center">Logística</div>
+          <div className="w-32 text-center">Acciones</div>
+        </div>
+
+        {/* Lista de Pedidos */}
+        <div className="divide-y divide-gray-100">
+          {cajasFiltradas.length > 0 ? (
+            cajasFiltradas.map((caja) => {
+              const dia = new Date(caja.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+              const estaPagado = caja.saldo <= 0 && caja.totalCaja > 0;
+              const estaAbierta = caja.estado === 'abierta'; 
+              const estadoEnvio = caja.estado_envio || 'proceso';
+              const estaBloqueado = estadoEnvio === 'enviado'; 
+              const ubigeoDestino = caja.tipo_entrega === 'agencia' 
+                ? [caja.agencia_distrito, caja.agencia_provincia].filter(Boolean).join(', ') 
+                : [caja.clientes?.distrito, caja.clientes?.provincia].filter(Boolean).join(', ');
+
+              return (
+                <div key={caja.id} className="flex flex-col">
+                  {/* FILA PRINCIPAL (Tarjeta en móvil, Fila en PC) */}
+                  <div className={`flex flex-col lg:flex-row lg:items-center p-4 gap-3 md:gap-4 transition-colors ${estaBloqueado ? 'bg-gray-50/50' : 'hover:bg-green-50/30'}`} onClick={() => toggleFila(caja)}>
+                    
+                    {/* Encabezado Móvil: Tag + Flecha */}
+                    <div className="flex justify-between items-center lg:hidden w-full cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-green-700 bg-green-100/50 px-2.5 py-1 rounded-lg text-sm border border-green-200/50">@{caja.clientes?.usuario_tiktok}</span>
+                        {estaAbierta && <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-1 rounded-md animate-pulse">EDITANDO</span>}
+                      </div>
+                      <div className="p-1 bg-gray-100 rounded-full text-gray-500">{filaExpandida === caja.id ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}</div>
+                    </div>
+
+                    {/* Flecha Desktop */}
+                    <div className="hidden lg:flex w-12 justify-center text-gray-400 cursor-pointer">
+                      {filaExpandida === caja.id ? <ChevronUp size={22}/> : <ChevronDown size={22}/>}
+                    </div>
+
+                    {/* Fecha */}
+                    <div className="text-xs text-gray-500 lg:text-sm lg:text-gray-800 lg:w-28 font-semibold flex items-center gap-1.5">
+                      <Calendar size={14} className="lg:hidden text-gray-400"/> {dia}
+                    </div>
+
+                    {/* Info Cliente Desktop (Oculto en móvil) */}
+                    <div className="hidden lg:flex flex-col flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-green-700 text-sm">@{caja.clientes?.usuario_tiktok}</span>
+                        {estaAbierta && <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-md">EDITANDO CAJA</span>}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-1 font-medium">
+                        {caja.tipo_entrega === 'agencia' ? <Building2 size={12} className="text-blue-500"/> : <Home size={12} className="text-green-500"/>} 
+                        {caja.tipo_entrega === 'agencia' ? caja.courier : 'Domicilio'} • {ubigeoDestino || 'Sin destino'}
+                      </div>
+                    </div>
+
+                    {/* Info Cliente Móvil (Oculto en PC) */}
+                    <div className="lg:hidden flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 w-fit px-2 py-1 rounded-md border border-gray-100">
+                      {caja.tipo_entrega === 'agencia' ? <Building2 size={12} className="text-blue-500"/> : <Home size={12} className="text-green-500"/>} 
+                      <span className="font-semibold">{caja.tipo_entrega === 'agencia' ? caja.courier : 'Domicilio'}:</span> {ubigeoDestino || 'Falta ubigeo'}
+                    </div>
+
+                    {/* Montos y Estados (Mobile Grid) */}
+                    <div className="grid grid-cols-2 gap-2 lg:hidden mt-1 w-full">
+                      <div className="bg-gray-50 border border-gray-100 p-2 rounded-xl flex flex-col justify-center items-center text-center">
+                        <span className="text-[10px] uppercase text-gray-400 font-bold mb-0.5">Total Pago</span>
+                        <span className="text-sm font-black text-gray-800">S/ {caja.totalCaja.toFixed(2)}</span>
+                      </div>
+                      <div className={`p-2 rounded-xl border flex flex-col justify-center items-center text-center ${estaPagado ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}>
+                        <span className={`text-[10px] uppercase font-bold mb-0.5 ${estaPagado ? 'text-green-600' : 'text-orange-600'}`}>Estado</span>
+                        {estaPagado ? <span className="text-sm font-black text-green-700 flex items-center gap-1"><CheckCircle2 size={14}/> Pagado</span> : <span className="text-sm font-black text-orange-700">Falta S/{caja.saldo.toFixed(2)}</span>}
+                      </div>
+                    </div>
+
+                    {/* Montos y Estados Desktop */}
+                    <div className="hidden lg:block w-32 text-center font-black text-gray-700">S/ {caja.totalCaja.toFixed(2)}</div>
+                    <div className="hidden lg:flex w-32 justify-center">
+                      {estaPagado ? <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full"><CheckCircle2 size={14} className="inline mr-1"/> OK</span> : <span className="text-xs font-bold text-orange-700 bg-orange-100 px-3 py-1.5 rounded-full">Falta S/{caja.saldo.toFixed(2)}</span>}
+                    </div>
+
+                    {/* Estado Logístico */}
+                    <div className="flex justify-center items-center gap-2 lg:w-36 mt-1 lg:mt-0">
+                      {estadoEnvio === 'proceso' && <span className="text-xs font-bold text-gray-700 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-full w-full lg:w-auto text-center"><Timer size={14} className="inline mb-0.5 mr-1"/> En Proceso</span>}
+                      {estadoEnvio === 'listo' && <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full w-full lg:w-auto text-center"><PackageCheck size={14} className="inline mb-0.5 mr-1"/> Listo</span>}
+                      {estadoEnvio === 'enviado' && <span className="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-full w-full lg:w-auto text-center"><Truck size={14} className="inline mb-0.5 mr-1"/> Enviado</span>}
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex justify-between lg:justify-center gap-2 lg:w-32 mt-2 lg:mt-0 pt-3 border-t border-gray-100 lg:border-t-0 lg:pt-0">
+                      <div className="flex gap-2">
+                        <button onClick={(e) => { e.stopPropagation(); enviarResumenWhatsApp(caja); }} title="Enviar WhatsApp Directo" className="p-2.5 lg:p-2 text-green-600 hover:bg-green-50 rounded-xl transition-colors bg-white border border-gray-200 shadow-sm lg:shadow-none lg:border-transparent lg:bg-transparent flex-1 flex justify-center"><MessageCircle size={18} /></button>
+                        <button onClick={(e) => generarEtiquetaPDF(e, caja)} title="Imprimir PDF A5" className="p-2.5 lg:p-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors bg-white border border-gray-200 shadow-sm lg:shadow-none lg:border-transparent lg:bg-transparent flex-1 flex justify-center"><Printer size={18} /></button>
+                      </div>
+                      <div className="flex gap-2">
+                        {estaBloqueado ? (
+                          <span className="p-2.5 lg:p-2 text-gray-400 bg-gray-100 rounded-xl cursor-not-allowed flex-1 flex justify-center"><Lock size={18} /></span>
+                        ) : (
+                          <>
+                            {!estaAbierta && <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} className="hidden md:flex p-2 text-blue-600 hover:bg-blue-50 rounded-xl"><Unlock size={18} /></button>}
+                            <button onClick={(e) => eliminarCaja(e, caja.id)} className="p-2.5 lg:p-2 text-red-600 hover:bg-red-50 rounded-xl bg-red-50/50 border border-red-100 lg:border-transparent lg:bg-transparent flex-1 flex justify-center"><Trash2 size={18} /></button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ✅ ÁREA EXPANDIDA COMPLETAMENTE OPTIMIZADA PARA MÓVIL (Sin tablas) */}
+                  {filaExpandida === caja.id && (
+                    <div className="bg-gray-50/80 border-t border-gray-200 p-3 md:p-6 shadow-inner">
+                      
+                      <div className="flex flex-col xl:flex-row gap-4 mb-4">
+                        {/* PLANTAS */}
+                        <div className="flex-1 bg-white p-4 md:p-5 rounded-2xl border border-gray-200 shadow-sm">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                            <h4 className="font-black text-gray-800 flex items-center gap-2 text-base"><Package size={18} className="text-green-600"/> Resumen del Pedido</h4>
+                            {/* 🔥 NUEVO BOTÓN DE WHATSAPP 🔥 */}
+                            <button onClick={() => enviarResumenWhatsApp(caja)} className="flex items-center justify-center w-full sm:w-auto gap-2 bg-green-500 text-white hover:bg-green-600 px-4 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-md">
+                              <Send size={16} /> Enviar por WhatsApp 📲
+                            </button>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                            {caja.detalle_caja.map((item: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                {item.plantas?.imagen_url ? <img src={item.plantas.imagen_url} className="w-12 h-12 object-cover rounded-lg border border-gray-200" /> : <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400"><ImageIcon size={20} /></div>}
+                                <div className="flex-1">
+                                  <p className="font-bold text-gray-800 text-sm line-clamp-1">{item.plantas?.nombre}</p>
+                                  <p className="text-xs text-gray-500 font-medium">{item.cantidad} x S/ {item.precio_vendido.toFixed(2)}</p>
+                                </div>
+                                <div className="font-black text-gray-800 text-sm bg-white px-2 py-1 rounded-md border border-gray-100 shadow-sm">S/ {(item.cantidad * item.precio_vendido).toFixed(2)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* PAGO */}
+                        <div className="w-full xl:w-80 bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-2xl p-5 h-fit shadow-sm">
+                          <h4 className="font-black text-blue-900 mb-4 flex items-center gap-2 text-base"><DollarSign size={18} className="text-blue-600"/> Finanzas</h4>
+                          <div className="space-y-2.5">
+                            <div className="flex justify-between text-sm text-gray-600 font-medium"><span>Costo Total:</span> <span className="text-gray-900">S/ {caja.totalCaja.toFixed(2)}</span></div>
+                            <div className="flex justify-between text-sm text-gray-600 font-medium"><span>Abonado:</span> <span className="text-blue-600 font-bold">- S/ {caja.totalAbonado.toFixed(2)}</span></div>
+                            <div className="pt-3 border-t border-blue-200/80 flex justify-between font-black text-lg items-center">
+                              <span className="text-gray-800 uppercase tracking-wide text-sm">Saldo Final</span>
+                              <span className={`px-3 py-1 rounded-lg ${caja.saldo > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>S/ {caja.saldo.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        {/* FORMULARIO DE ENVÍO */}
+                        <div className="bg-white p-4 md:p-5 rounded-2xl border border-gray-200 shadow-sm">
+                          <h4 className="font-black text-gray-800 mb-4 flex items-center gap-2 text-base"><MapPin size={18} className="text-red-500"/> Logística y Etiqueta</h4>
+                          
+                          {editandoEnvioId === caja.id ? (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-4 border-b border-gray-100">
+                                <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Nombre Recibe</label><input type="text" className="w-full p-2.5 text-sm font-semibold text-gray-800 rounded-xl border border-gray-200 focus:border-green-500 outline-none bg-gray-50" value={formEnvio.nombre_completo} onChange={(e) => setFormEnvio({...formEnvio, nombre_completo: e.target.value})} placeholder="Ej. Juan Pérez" /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">DNI</label><input type="text" maxLength={8} className="w-full p-2.5 text-sm font-semibold text-gray-800 rounded-xl border border-gray-200 focus:border-green-500 outline-none bg-gray-50 font-mono" value={formEnvio.dni} onChange={(e) => setFormEnvio({...formEnvio, dni: e.target.value.replace(/\D/g, '')})} placeholder="Obligatorio para agencia" /></div>
+                                <div className="sm:col-span-2"><label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">WhatsApp / Celular</label><input type="text" className="w-full p-2.5 text-sm font-semibold text-gray-800 rounded-xl border border-gray-200 focus:border-green-500 outline-none bg-gray-50 font-mono" value={formEnvio.celular} onChange={(e) => setFormEnvio({...formEnvio, celular: e.target.value})} placeholder="999888777" /></div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'agencia'})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all border ${formEnvio.tipo_entrega === 'agencia' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-gray-500 border-gray-200'}`}><Building2 size={16}/> Agencia</button>
+                                <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'domicilio'})} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all border ${formEnvio.tipo_entrega === 'domicilio' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-500 border-gray-200'}`}><Home size={16}/> Domicilio</button>
+                              </div>
+
+                              {formEnvio.tipo_entrega === 'agencia' ? (
+                                <div className="space-y-2.5 bg-blue-50/30 p-3 rounded-xl border border-blue-50">
+                                  <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-bold text-blue-900 bg-white outline-none" value={formEnvio.courier} onChange={(e) => setFormEnvio({...formEnvio, courier: e.target.value})}><option value="">Seleccione Empresa...</option>{empresasCourier.map(emp => <option key={emp} value={emp}>{emp}</option>)}</select>
+                                  <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-semibold text-gray-700 bg-white outline-none" value={formEnvio.agencia_departamento} onChange={(e) => { actualizarListasUbigeo(e.target.value); setFormEnvio({...formEnvio, agencia_departamento: e.target.value, agencia_provincia: '', agencia_distrito: ''}); }}><option value="">Departamento de destino...</option>{listaDepartamentos.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-semibold text-gray-700 bg-white outline-none disabled:opacity-50" disabled={!formEnvio.agencia_departamento} value={formEnvio.agencia_provincia} onChange={(e) => { actualizarListasUbigeo(formEnvio.agencia_departamento, e.target.value); setFormEnvio({...formEnvio, agencia_provincia: e.target.value, agencia_distrito: ''}); }}><option value="">Provincia...</option>{listaProvincias.map(p => <option key={p} value={p}>{p}</option>)}</select>
+                                    <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-semibold text-gray-700 bg-white outline-none disabled:opacity-50" disabled={!formEnvio.agencia_provincia} value={formEnvio.agencia_distrito} onChange={(e) => { setFormEnvio({...formEnvio, agencia_distrito: e.target.value}); buscarAgenciasPrevias(e.target.value); }}><option value="">Distrito...</option>{listaDistritos.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                  </div>
+                                  <input type="text" placeholder="Referencia de la Agencia (Opcional)" className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-blue-500 font-semibold text-gray-700 bg-white outline-none" value={formEnvio.agencia_direccion} onChange={(e) => setFormEnvio({...formEnvio, agencia_direccion: e.target.value})} list="sugerenciasAgencias" />
+                                  <datalist id="sugerenciasAgencias">{agenciasSugeridas.map((agencia, i) => <option key={i} value={agencia} />)}</datalist>
+                                </div>
+                              ) : (
+                                <div className="space-y-2.5 bg-green-50/30 p-3 rounded-xl border border-green-50">
+                                  <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-green-500 font-semibold text-gray-700 bg-white outline-none" value={formEnvio.departamento} onChange={(e) => { actualizarListasUbigeo(e.target.value); setFormEnvio({...formEnvio, departamento: e.target.value, provincia: '', distrito: ''}); }}><option value="">Departamento del domicilio...</option>{listaDepartamentos.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-green-500 font-semibold text-gray-700 bg-white outline-none disabled:opacity-50" disabled={!formEnvio.departamento} value={formEnvio.provincia} onChange={(e) => { actualizarListasUbigeo(formEnvio.departamento, e.target.value); setFormEnvio({...formEnvio, provincia: e.target.value, distrito: ''}); }}><option value="">Provincia...</option>{listaProvincias.map(p => <option key={p} value={p}>{p}</option>)}</select>
+                                    <select className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-green-500 font-semibold text-gray-700 bg-white outline-none disabled:opacity-50" disabled={!formEnvio.provincia} value={formEnvio.distrito} onChange={(e) => setFormEnvio({...formEnvio, distrito: e.target.value})}><option value="">Distrito...</option>{listaDistritos.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                  </div>
+                                  <input type="text" placeholder="Dirección exacta, Calle, Mz, Lote..." className="w-full p-3 text-sm rounded-xl border border-gray-200 focus:border-green-500 font-semibold text-gray-700 bg-white outline-none" value={formEnvio.direccion} onChange={(e) => setFormEnvio({...formEnvio, direccion: e.target.value})} />
+                                </div>
+                              )}
+                              
+                              <div className="flex gap-2 pt-2">
+                                <button onClick={() => setEditandoEnvioId(null)} className="w-1/3 bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors">Cancelar</button>
+                                <button onClick={() => guardarEnvio(caja)} disabled={cargando} className="w-2/3 bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 flex items-center justify-center gap-2 shadow-md"><Save size={18}/> Guardar Cambios</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-4">
+                              <div className="flex justify-between items-start">
+                                <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border ${caja.tipo_entrega === 'agencia' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                                  {caja.tipo_entrega === 'agencia' ? `🏢 AGENCIA: ${caja.courier || 'Pendiente'}` : '🏡 ENVÍO A DOMICILIO'}
+                                </span>
+                                <button onClick={() => iniciarEdicionEnvio(caja)} disabled={estaBloqueado} className={`p-2 rounded-xl transition-colors ${estaBloqueado ? 'text-gray-300 bg-gray-50' : 'text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-blue-50 border border-gray-200'}`}><Edit size={16}/></button>
+                              </div>
+                              
+                              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-3">
+                                <p className="text-sm font-bold text-gray-800 flex items-center flex-wrap gap-2">
+                                  <User size={16} className="text-gray-400"/> 
+                                  {caja.clientes?.nombre_completo || 'No registró nombre'} 
+                                  {caja.clientes?.dni ? <span className="bg-white px-2 py-0.5 rounded border border-gray-200 text-xs text-gray-600">DNI: {caja.clientes.dni}</span> : ''}
+                                  {caja.clientes?.celular ? <span className="bg-white px-2 py-0.5 rounded border border-gray-200 text-xs text-gray-600 font-mono">📱 {caja.clientes.celular}</span> : ''}
+                                </p>
+                                <p className="text-sm text-gray-600 flex items-start gap-2">
+                                  <MapPin size={16} className="text-red-400 mt-0.5 shrink-0"/> 
+                                  <span className="leading-snug">
+                                    <strong className="block text-gray-800">{caja.tipo_entrega === 'agencia' ? [caja.agencia_distrito, caja.agencia_provincia, caja.agencia_departamento].filter(Boolean).join(', ') || 'Falta indicar Ubigeo' : [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ') || 'Falta indicar Ubigeo'}</strong>
+                                    {caja.tipo_entrega === 'agencia' && caja.agencia_direccion ? <span className="block mt-1 italic text-gray-500 text-xs">Ref: {caja.agencia_direccion}</span> : ''}
+                                    {caja.tipo_entrega === 'domicilio' && caja.clientes?.direccion ? <span className="block mt-1 italic text-gray-500 text-xs">Dir: {caja.clientes?.direccion}</span> : ''}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ACCIONES DE ESTADO */}
+                        <div className="bg-white p-4 md:p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col h-full">
+                          <h4 className="font-black text-gray-800 mb-4 flex items-center gap-2 text-base"><Truck size={18} className="text-purple-600"/> Estado del Paquete</h4>
+                          
+                          <div className="flex-1 flex flex-col justify-center gap-3">
+                            {estaAbierta && <p className="text-xs text-orange-600 font-bold text-center bg-orange-50 p-2 rounded-lg border border-orange-100 mb-2">⚠️ Debes cerrar la caja en el Panel en Vivo para poder cambiar los estados logísticos.</p>}
+                            
+                            <button onClick={() => cambiarEstadoEnvio(caja, 'proceso', estadoEnvio)} disabled={estaBloqueado} className={`flex items-center justify-center gap-2 w-full py-3.5 rounded-xl font-black text-sm transition-all border ${estadoEnvio === 'proceso' ? 'bg-gray-800 text-white border-gray-800 shadow-md' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'} ${estaBloqueado && 'opacity-50 cursor-not-allowed'}`}><Timer size={18} /> Paquete en Proceso</button>
+                            <button onClick={() => cambiarEstadoEnvio(caja, 'listo', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center gap-2 w-full py-3.5 rounded-xl font-black text-sm transition-all border ${estadoEnvio === 'listo' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><PackageCheck size={18} /> Listo para la Agencia</button>
+                            <button onClick={() => cambiarEstadoEnvio(caja, 'enviado', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center gap-2 w-full py-4 rounded-xl font-black text-sm transition-all border ${estadoEnvio === 'enviado' ? 'bg-purple-600 text-white border-purple-600 shadow-lg scale-[1.02]' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><Truck size={20} /> {estaBloqueado ? '✅ PEDIDO ENVIADO' : 'MARCAR COMO ENVIADO'}</button>
+                            
+                            <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                              {!estaAbierta && !estaBloqueado && (
+                                <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} className="flex-1 py-3 bg-white text-blue-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-blue-200 hover:bg-blue-50 shadow-sm"><Unlock size={16}/> Editar Caja</button>
+                              )}
+                              {!estaBloqueado && (
+                                <button onClick={(e) => eliminarCaja(e, caja.id)} className="flex-1 py-3 bg-white text-red-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-50 shadow-sm"><Trash2 size={16}/> Borrar</button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-20 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+              <Package size={48} className="mb-4 text-gray-300"/>
+              <p className="text-lg font-bold">{cargando ? 'Cargando logística...' : 'No hay pedidos con estos filtros'}</p>
+            </div>
           )}
         </div>
       </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="w-full">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs md:text-sm">
-                <th className="p-3 md:p-4 font-semibold w-8 md:w-10"></th>
-                <th className="hidden lg:table-cell p-3 md:p-4 font-semibold">Fecha</th>
-                <th className="p-3 md:p-4 font-semibold">Cliente y Estado</th>
-                <th className="hidden md:table-cell p-3 md:p-4 font-semibold text-center">Destino</th>
-                <th className="hidden lg:table-cell p-3 md:p-4 font-semibold text-center">Total</th>
-                <th className="hidden lg:table-cell p-3 md:p-4 font-semibold text-center">Cobro</th>
-                <th className="hidden md:table-cell p-3 md:p-4 font-semibold text-center">Logística</th>
-                <th className="p-3 md:p-4 font-semibold text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {cajasFiltradas.length > 0 ? (
-                cajasFiltradas.map((caja) => {
-                  const fecha = new Date(caja.created_at);
-                  const dia = fecha.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
-                  
-                  const estaPagado = caja.saldo <= 0 && caja.totalCaja > 0;
-                  const estaAbierta = caja.estado === 'abierta'; 
-                  const estadoEnvio = caja.estado_envio || 'proceso';
-                  const estaBloqueado = estadoEnvio === 'enviado'; 
-
-                  return (
-                    <React.Fragment key={caja.id}>
-                      <tr className={`hover:bg-green-50/30 transition-colors cursor-pointer ${estaBloqueado ? 'bg-gray-50/50' : ''}`} onClick={() => toggleFila(caja)}>
-                        <td className="p-3 md:p-4 text-gray-400">{filaExpandida === caja.id ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}</td>
-                        <td className="hidden lg:table-cell p-3 md:p-4 font-semibold text-gray-800 text-sm whitespace-nowrap">{dia}</td>
-                        
-                        <td className="p-3 md:p-4">
-                          <span className="font-bold text-green-700 bg-green-50 px-2 py-1 rounded-lg text-sm whitespace-nowrap">@{caja.clientes?.usuario_tiktok}</span>
-                          
-                          <div className="block lg:hidden mt-2 space-y-1">
-                            <p className="text-[10px] text-gray-400 font-semibold">{dia}</p>
-                            <div className="flex flex-wrap gap-1">
-                              {estaPagado ? (
-                                <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">Cobrado</span>
-                              ) : (
-                                <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">Falta S/{caja.saldo.toFixed(2)}</span>
-                              )}
-                              {estadoEnvio === 'proceso' && <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">En Proceso</span>}
-                              {estadoEnvio === 'listo' && <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">Listo Enviar</span>}
-                              {estadoEnvio === 'enviado' && <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">Enviado</span>}
-                            </div>
-                          </div>
-
-                          {estaAbierta && <span className="block mt-1 text-[10px] text-blue-500 font-bold uppercase tracking-wider">🔴 Editando...</span>}
-                        </td>
-                        
-                        <td className="hidden md:table-cell p-3 md:p-4 text-center">
-                          <div className="flex flex-col items-center justify-center text-xs">
-                            {caja.tipo_entrega === 'agencia' ? (
-                              <>
-                                <span className="font-bold text-blue-700 flex items-center gap-1"><Building2 size={12}/> {caja.courier || 'Agencia'}</span>
-                                <span className="text-gray-500 max-w-[120px] truncate" title={[caja.agencia_distrito, caja.agencia_provincia].filter(Boolean).join(', ')}>
-                                  {[caja.agencia_distrito, caja.agencia_provincia].filter(Boolean).join(', ') || 'Sin destino'}
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="font-bold text-green-700 flex items-center gap-1"><Home size={12}/> Domicilio</span>
-                                <span className="text-gray-500 max-w-[120px] truncate" title={[caja.clientes?.distrito, caja.clientes?.provincia].filter(Boolean).join(', ')}>
-                                  {[caja.clientes?.distrito, caja.clientes?.provincia].filter(Boolean).join(', ') || 'Sin destino'}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className={`hidden lg:table-cell p-3 md:p-4 text-center font-bold text-gray-700 whitespace-nowrap`}>S/ {caja.totalCaja.toFixed(2)}</td>
-                        
-                        <td className="hidden lg:table-cell p-3 md:p-4">
-                          <div className="flex flex-col items-center justify-center">
-                            {estaPagado ? (
-                              <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full w-full max-w-[100px] text-center"><CheckCircle2 size={14} className="inline mr-1"/> OK</span>
-                            ) : (
-                              <span className="text-xs font-bold text-orange-700 bg-orange-100 px-3 py-1.5 rounded-full w-full max-w-[120px] text-center whitespace-nowrap">Falta S/{caja.saldo.toFixed(2)}</span>
-                            )}
-                          </div>
-                        </td>
-                        
-                        <td className="hidden md:table-cell p-3 md:p-4 text-center">
-                          {estadoEnvio === 'proceso' && <span className="text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full whitespace-nowrap"><Timer size={14} className="inline mb-0.5 mr-1"/> Proceso</span>}
-                          {estadoEnvio === 'listo' && <span className="text-xs font-bold text-blue-700 bg-blue-100 px-3 py-1.5 rounded-full whitespace-nowrap"><PackageCheck size={14} className="inline mb-0.5 mr-1"/> Listo</span>}
-                          {estadoEnvio === 'enviado' && <span className="text-xs font-bold text-purple-700 bg-purple-100 px-3 py-1.5 rounded-full whitespace-nowrap"><Truck size={14} className="inline mb-0.5 mr-1"/> Enviado</span>}
-                        </td>
-                        
-                        <td className="p-3 md:p-4">
-                          <div className="flex justify-center gap-1 md:gap-2">
-                            <button onClick={(e) => abrirWhatsApp(e, caja.clientes?.celular)} title="Contactar por WhatsApp" className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"><MessageCircle size={18} /></button>
-                            <button onClick={(e) => generarEtiquetaPDF(e, caja)} title="Generar Etiqueta PDF A5" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"><Printer size={18} /></button>
-                            
-                            {estaBloqueado ? (
-                              <span className="p-2 text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed" title="Pedido bloqueado"><Lock size={18} /></span>
-                            ) : (
-                              <>
-                                {!estaAbierta && <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} title="Editar en Panel" className="hidden md:block p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Unlock size={18} /></button>}
-                                <button onClick={(e) => eliminarCaja(e, caja.id)} title="Eliminar Caja" className="hidden md:block p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} /></button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* --- NUEVO DISEÑO MÓVIL DEL RESUMEN EXPANDIDO --- */}
-                      {filaExpandida === caja.id && (
-                        <tr>
-                          <td colSpan={8} className="bg-gray-50/70 p-0 border-b border-gray-200 shadow-inner">
-                            {/* Eliminamos márgenes en móviles para usar todo el ancho */}
-                            <div className="p-4 md:p-6 bg-transparent">
-                              
-                              <div className="flex flex-col lg:flex-row gap-4 md:gap-8 mb-6">
-                                <div className="flex-1">
-                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-3">
-                                    <h4 className="font-bold text-gray-800 flex items-center gap-2 text-sm md:text-base"><Package size={18} className="text-green-600"/> Resumen de Plantas</h4>
-                                    
-                                    {/* BOTÓN INTELIGENTE DE WHATSAPP */}
-                                    <button onClick={() => enviarResumenWhatsApp(caja)} className="flex items-center justify-center w-full sm:w-auto gap-2 bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded-xl font-bold text-xs md:text-sm transition-colors shadow-sm">
-                                      <Send size={14} /> Enviar por WhatsApp
-                                    </button>
-                                  </div>
-                                  
-                                  {/* Lista de plantas más compacta */}
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
-                                    {caja.detalle_caja.map((item: any, idx: number) => (
-                                      <div key={idx} className="flex items-center gap-3 p-2.5 md:p-3 bg-white rounded-xl border border-gray-200 shadow-sm">
-                                        {item.plantas?.imagen_url ? <img src={item.plantas.imagen_url} className="w-10 h-10 md:w-12 md:h-12 object-cover rounded-lg border border-gray-100" /> : <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400"><ImageIcon size={20} /></div>}
-                                        <div className="flex-1">
-                                          <p className="font-bold text-gray-800 text-xs md:text-sm line-clamp-1">{item.plantas?.nombre}</p>
-                                          <p className="text-[10px] md:text-xs text-gray-500">{item.cantidad} x S/ {item.precio_vendido.toFixed(2)}</p>
-                                        </div>
-                                        <div className="font-black text-gray-700 text-sm">S/ {(item.cantidad * item.precio_vendido).toFixed(2)}</div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                <div className="w-full lg:w-72 bg-blue-50/50 border border-blue-100 rounded-xl p-4 md:p-5 h-fit shadow-sm">
-                                  <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2 text-sm md:text-base"><DollarSign size={18} className="text-blue-600"/> Detalle de Pago</h4>
-                                  <div className="space-y-2 md:space-y-3">
-                                    <div className="flex justify-between text-xs md:text-sm text-gray-600"><span>Total:</span> <span>S/ {caja.totalCaja.toFixed(2)}</span></div>
-                                    <div className="flex justify-between text-xs md:text-sm text-gray-600"><span>Abonado:</span> <span className="text-blue-600 font-bold">- S/ {caja.totalAbonado.toFixed(2)}</span></div>
-                                    <div className="pt-2 md:pt-3 border-t border-blue-200 flex justify-between font-black text-base md:text-lg">
-                                      <span className="text-gray-800">Saldo:</span>
-                                      <span className={caja.saldo > 0 ? 'text-orange-600' : 'text-green-600'}>S/ {caja.saldo.toFixed(2)}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="border-t border-gray-200 pt-5 md:pt-6 grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-8">
-                                
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                                  <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm md:text-base"><MapPin size={16} className="text-red-500"/> Ubicación y Datos</h4>
-                                  
-                                  {editandoEnvioId === caja.id ? (
-                                    <div className="space-y-4 animate-fade-in">
-                                      <div className="space-y-3 pb-4 border-b border-gray-100">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                          <div>
-                                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 mb-1">Nombre Completo</label>
-                                            <input type="text" className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.nombre_completo} onChange={(e) => setFormEnvio({...formEnvio, nombre_completo: e.target.value})} placeholder="Ej. Juan Pérez" />
-                                          </div>
-                                          <div>
-                                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 mb-1">DNI</label>
-                                            <input type="text" maxLength={8} className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.dni} onChange={(e) => setFormEnvio({...formEnvio, dni: e.target.value.replace(/\D/g, '')})} placeholder="8 dígitos" />
-                                          </div>
-                                          <div className="sm:col-span-2">
-                                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 mb-1">WhatsApp</label>
-                                            <input type="text" className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.celular} onChange={(e) => setFormEnvio({...formEnvio, celular: e.target.value})} placeholder="Ej. 999888777" />
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex gap-2">
-                                        <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'agencia'})} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all border ${formEnvio.tipo_entrega === 'agencia' ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-500 border-gray-200'}`}><Building2 size={14}/> Agencia</button>
-                                        <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'domicilio'})} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all border ${formEnvio.tipo_entrega === 'domicilio' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-50 text-gray-500 border-gray-200'}`}><Home size={14}/> Domicilio</button>
-                                      </div>
-
-                                      {formEnvio.tipo_entrega === 'agencia' ? (
-                                        <div className="space-y-2">
-                                          <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 font-semibold" value={formEnvio.courier} onChange={(e) => setFormEnvio({...formEnvio, courier: e.target.value})}>
-                                            <option value="">Courier...</option>
-                                            {empresasCourier.map(emp => <option key={emp} value={emp}>{emp}</option>)}
-                                          </select>
-                                          <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500" value={formEnvio.agencia_departamento} onChange={(e) => {
-                                            actualizarListasUbigeo(e.target.value);
-                                            setFormEnvio({...formEnvio, agencia_departamento: e.target.value, agencia_provincia: '', agencia_distrito: ''});
-                                          }}>
-                                            <option value="">Departamento...</option>
-                                            {listaDepartamentos.map(d => <option key={d} value={d}>{d}</option>)}
-                                          </select>
-                                          <div className="grid grid-cols-2 gap-2">
-                                            <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 disabled:opacity-50" disabled={!formEnvio.agencia_departamento} value={formEnvio.agencia_provincia} onChange={(e) => {
-                                              actualizarListasUbigeo(formEnvio.agencia_departamento, e.target.value);
-                                              setFormEnvio({...formEnvio, agencia_provincia: e.target.value, agencia_distrito: ''});
-                                            }}>
-                                              <option value="">Provincia...</option>
-                                              {listaProvincias.map(p => <option key={p} value={p}>{p}</option>)}
-                                            </select>
-                                            <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 disabled:opacity-50" disabled={!formEnvio.agencia_provincia} value={formEnvio.agencia_distrito} onChange={(e) => {
-                                              setFormEnvio({...formEnvio, agencia_distrito: e.target.value});
-                                              buscarAgenciasPrevias(e.target.value);
-                                            }}>
-                                              <option value="">Distrito...</option>
-                                              {listaDistritos.map(d => <option key={d} value={d}>{d}</option>)}
-                                            </select>
-                                          </div>
-                                          <input type="text" placeholder="Ref. de Agencia..." className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500" value={formEnvio.agencia_direccion} onChange={(e) => setFormEnvio({...formEnvio, agencia_direccion: e.target.value})} list="sugerenciasAgencias" />
-                                        </div>
-                                      ) : (
-                                        <div className="space-y-2">
-                                          <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.departamento} onChange={(e) => {
-                                            actualizarListasUbigeo(e.target.value);
-                                            setFormEnvio({...formEnvio, departamento: e.target.value, provincia: '', distrito: ''});
-                                          }}>
-                                            <option value="">Departamento...</option>
-                                            {listaDepartamentos.map(d => <option key={d} value={d}>{d}</option>)}
-                                          </select>
-                                          <div className="grid grid-cols-2 gap-2">
-                                            <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 disabled:opacity-50" disabled={!formEnvio.departamento} value={formEnvio.provincia} onChange={(e) => {
-                                              actualizarListasUbigeo(formEnvio.departamento, e.target.value);
-                                              setFormEnvio({...formEnvio, provincia: e.target.value, distrito: ''});
-                                            }}>
-                                              <option value="">Provincia...</option>
-                                              {listaProvincias.map(p => <option key={p} value={p}>{p}</option>)}
-                                            </select>
-                                            <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 disabled:opacity-50" disabled={!formEnvio.provincia} value={formEnvio.distrito} onChange={(e) => setFormEnvio({...formEnvio, distrito: e.target.value})}>
-                                              <option value="">Distrito...</option>
-                                              {listaDistritos.map(d => <option key={d} value={d}>{d}</option>)}
-                                            </select>
-                                          </div>
-                                          <input type="text" placeholder="Dirección exacta..." className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.direccion} onChange={(e) => setFormEnvio({...formEnvio, direccion: e.target.value})} />
-                                        </div>
-                                      )}
-                                      
-                                      <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
-                                        <button onClick={() => setEditandoEnvioId(null)} className="text-xs font-semibold text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg transition-colors">Cancelar</button>
-                                        <button onClick={() => guardarEnvio(caja)} disabled={cargando} className="bg-green-600 text-white text-xs md:text-sm font-bold px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-1.5"><Save size={14}/> Guardar</button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col gap-3">
-                                      <div className="flex justify-between items-start">
-                                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${caja.tipo_entrega === 'agencia' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
-                                          {caja.tipo_entrega === 'agencia' ? `🏢 AGENCIA: ${caja.courier || 'Pendiente'}` : '🏡 A DOMICILIO'}
-                                        </span>
-                                        <button onClick={() => iniciarEdicionEnvio(caja)} disabled={estaBloqueado} className={`p-1.5 rounded-md transition-colors ${estaBloqueado ? 'text-gray-300' : 'text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-blue-50'}`}><Edit size={14}/></button>
-                                      </div>
-                                      
-                                      <div className="space-y-1">
-                                        <p className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                                          <User size={14} className="text-gray-400"/> 
-                                          {caja.clientes?.nombre_completo || 'Sin nombre'} {caja.clientes?.dni ? `• DNI: ${caja.clientes.dni}` : ''}
-                                        </p>
-                                        <p className="text-[11px] md:text-xs text-gray-600 flex items-start gap-1.5 leading-snug">
-                                          <MapPin size={12} className="text-gray-400 mt-0.5 shrink-0"/> 
-                                          <span>
-                                            <strong className="block">{caja.tipo_entrega === 'agencia' ? [caja.agencia_distrito, caja.agencia_provincia, caja.agencia_departamento].filter(Boolean).join(', ') : [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ')}</strong>
-                                            {caja.tipo_entrega === 'agencia' && caja.agencia_direccion ? `Ref: ${caja.agencia_direccion}` : ''}
-                                            {caja.tipo_entrega === 'domicilio' && caja.clientes?.direccion ? `Dir: ${caja.clientes?.direccion}` : ''}
-                                          </span>
-                                        </p>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                                  <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm md:text-base"><Truck size={16} className="text-purple-600"/> Seguimiento Logístico</h4>
-                                  <div className="flex flex-col gap-3 h-full">
-                                    {estaAbierta && <p className="text-[10px] md:text-xs text-orange-600 font-semibold">⚠️ Cierra la caja en el Panel en Vivo para despachar.</p>}
-                                    
-                                    <div className="grid grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2">
-                                      <button onClick={() => cambiarEstadoEnvio(caja, 'proceso', estadoEnvio)} disabled={estaBloqueado} className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg font-bold text-[11px] md:text-xs transition-all border ${estadoEnvio === 'proceso' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'} ${estaBloqueado && 'opacity-50 cursor-not-allowed'}`}><Timer size={14} /> Proceso</button>
-                                      <button onClick={() => cambiarEstadoEnvio(caja, 'listo', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg font-bold text-[11px] md:text-xs transition-all border ${estadoEnvio === 'listo' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><PackageCheck size={14} /> Listo</button>
-                                      <button onClick={() => cambiarEstadoEnvio(caja, 'enviado', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center col-span-2 lg:col-span-1 xl:col-span-2 gap-1.5 px-2 py-2.5 rounded-lg font-bold text-[11px] md:text-xs transition-all border ${estadoEnvio === 'enviado' ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><Truck size={14} /> {estaBloqueado ? 'Pedido Enviado (Bloqueado)' : 'Marcar como Enviado'}</button>
-                                    </div>
-                                    
-                                    <div className="md:hidden flex gap-2 mt-auto pt-3 border-t border-gray-100">
-                                      {!estaAbierta && !estaBloqueado && (
-                                        <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} className="flex-1 p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border border-blue-100"><Unlock size={14}/> Reabrir Panel</button>
-                                      )}
-                                      {!estaBloqueado && (
-                                        <button onClick={(e) => eliminarCaja(e, caja.id)} className="flex-1 p-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border border-red-100"><Trash2 size={14}/> Eliminar</button>
-                                      )}
-                                    </div>
-
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-400">
-                    {cargando ? 'Cargando pedidos...' : 'No se encontraron pedidos con estos filtros.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      
+      {!mostrarAntiguos && !fechaInicio && !fechaFin && !busqueda && (
+        <div className="mt-6 flex justify-center">
+          <button onClick={() => setMostrarAntiguos(true)} className="text-sm font-black text-gray-500 hover:text-green-700 bg-white border border-gray-200 px-8 py-3.5 rounded-2xl shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+            Cargar historial antiguo (más de 7 días)
+          </button>
         </div>
-        
-        {!mostrarAntiguos && !fechaInicio && !fechaFin && !busqueda && (
-          <div className="bg-gray-50 border-t border-gray-100 p-4 text-center">
-            <button onClick={() => setMostrarAntiguos(true)} className="text-sm font-bold text-gray-500 hover:text-green-600 bg-white border border-gray-200 px-6 py-2.5 rounded-xl shadow-sm transition-colors">
-              Cargar pedidos anteriores (más de 7 días)
-            </button>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
+Este es mi código completo que tengo para realizar los cambios sugeridos.
+Guiame como puedo hacer.

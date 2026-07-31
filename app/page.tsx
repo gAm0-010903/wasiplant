@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
-import { Search, Calendar, Package, DollarSign, CheckCircle2, Clock, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Copy, Building2, Home, User, Printer, MessageCircle, Phone } from 'lucide-react';
+// ✅ Solución definitiva: Usar el alias profesional de Next.js
+import { supabase } from '@/lib/supabase';
+import { Search, Calendar, Package, DollarSign, CheckCircle2, Clock, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Building2, Home, User, Printer, MessageCircle, Send } from 'lucide-react';
 
 export default function Historial() {
   const [cajas, setCajas] = useState<any[]>([]);
@@ -72,7 +73,8 @@ export default function Historial() {
           let { tipo_entrega, courier, agencia_departamento, agencia_provincia, agencia_distrito, agencia_direccion } = caja;
 
           if (!agencia_departamento && !courier) {
-            const cajaAnterior = data.find(c => c.cliente_id === caja.cliente_id && c.id !== caja.id && (c.agencia_departamento || c.courier));
+            // ✅ Solución al error de tipado estricto 'any' en 'c'
+            const cajaAnterior = data.find((c: any) => c.cliente_id === caja.cliente_id && c.id !== caja.id && (c.agencia_departamento || c.courier));
 
             if (cajaAnterior) {
               tipo_entrega = cajaAnterior.tipo_entrega || 'agencia';
@@ -196,8 +198,9 @@ export default function Historial() {
     setCargando(false);
   };
 
-  const copiarResumen = async (caja: any) => {
+  const enviarResumenWhatsApp = async (caja: any) => {
     const nombre = caja.clientes?.nombre_completo || `@${caja.clientes?.usuario_tiktok}`;
+    const celular = caja.clientes?.celular;
     const fechaObj = new Date(caja.created_at);
     const dd = String(fechaObj.getDate()).padStart(2, '0');
     const mm = String(fechaObj.getMonth() + 1).padStart(2, '0');
@@ -208,13 +211,13 @@ export default function Historial() {
     texto += `🔑 *CLAVE DE PEDIDO:* ${claveSecreta}\n\n`;
     texto += `📦 *PLANTAS ELEGIDAS:*\n`;
     caja.detalle_caja.forEach((item: any) => {
-      texto += `- ${item.cantidad}x ${item.plantas?.nombre} (S/ ${item.precio_vendido.toFixed(2)}) = S/ ${(item.cantidad * item.precio_vendido).toFixed(2)}\n`;
+      texto += `- ${item.cantidad}x ${item.plantas?.nombre} (S/ ${item.precio_vendido.toFixed(2)})\n`;
     });
     
     texto += `\n💰 *DETALLE DE PAGO:*\n`;
     texto += `Total del pedido: S/ ${caja.totalCaja.toFixed(2)}\n`;
-    texto += `Monto abonado: S/ ${caja.totalAbonado.toFixed(2)}\n`;
-    texto += `Saldo pendiente: S/ ${caja.saldo.toFixed(2)}\n\n`;
+    if (caja.totalAbonado > 0) texto += `Monto abonado: S/ ${caja.totalAbonado.toFixed(2)}\n`;
+    texto += `*Saldo pendiente: S/ ${caja.saldo.toFixed(2)}*\n\n`;
     
     texto += `📍 *LUGAR DE ENVÍO:*\n`;
     if (caja.tipo_entrega === 'agencia') {
@@ -232,13 +235,19 @@ export default function Historial() {
     
     try {
       await navigator.clipboard.writeText(texto);
-      alert("¡Mensaje copiado! Listo para enviarlo a tu cliente.");
     } catch (err) {
-      alert("Error al copiar el texto.");
+      console.log("No se pudo copiar el texto automáticamente.");
+    }
+
+    if (celular) {
+      const numeroLimpio = celular.replace(/\D/g, '');
+      const numeroFinal = numeroLimpio.startsWith('51') ? numeroLimpio : `51${numeroLimpio}`;
+      window.open(`https://wa.me/${numeroFinal}?text=${encodeURIComponent(texto)}`, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
     }
   };
 
-  // NUEVO: Generador PDF optimizado para tamaño A5 Profesional
   const generarEtiquetaPDF = (e: React.MouseEvent, caja: any) => {
     e.stopPropagation(); 
     const ventana = window.open('', '_blank');
@@ -274,46 +283,18 @@ export default function Historial() {
             }
             body { 
               font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-              margin: 0; 
-              padding: 0; 
-              background-color: #f9f9f9; 
-              display: flex; 
-              justify-content: center; 
-              align-items: center;
-              min-height: 100vh;
+              margin: 0; padding: 0; background-color: #f9f9f9; 
+              display: flex; justify-content: center; align-items: center; min-height: 100vh;
             }
             .etiqueta-a5 {
-              width: 148mm;
-              height: 210mm;
-              background: #fff;
-              border: 2px solid #000;
-              box-sizing: border-box;
-              padding: 12mm 10mm;
-              display: flex;
-              flex-direction: column;
-              box-shadow: 0 0 10px rgba(0,0,0,0.1); /* Sombra solo visible en pantalla, no en impresión */
+              width: 148mm; height: 210mm; background: #fff; border: 2px solid #000;
+              box-sizing: border-box; padding: 12mm 10mm; display: flex; flex-direction: column;
             }
-            .header {
-              text-align: center;
-              border-bottom: 4px solid #166534;
-              padding-bottom: 12px;
-              margin-bottom: 15px;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 34px;
-              text-transform: uppercase;
-              color: #166534;
-              letter-spacing: 2px;
-            }
+            .header { text-align: center; border-bottom: 4px solid #166534; padding-bottom: 12px; margin-bottom: 15px; }
+            .header h1 { margin: 0; font-size: 34px; text-transform: uppercase; color: #166534; letter-spacing: 2px; }
             .header p { margin: 5px 0 0 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold; }
             .seccion { margin-bottom: 22px; }
-            .destacado {
-              background-color: #f0fdf4;
-              border: 2px solid #bbf7d0;
-              padding: 15px;
-              border-radius: 12px;
-            }
+            .destacado { background-color: #f0fdf4; border: 2px solid #bbf7d0; padding: 15px; border-radius: 12px; }
             .label { font-size: 13px; text-transform: uppercase; font-weight: 800; color: #166534; margin-bottom: 6px; display: block; border-bottom: 1px solid #dcfce7; padding-bottom: 4px; }
             .valor-grande { font-size: 26px; font-weight: 900; line-height: 1.1; color: #111; text-transform: uppercase; }
             .valor-mediano { font-size: 18px; line-height: 1.4; color: #222; margin-top: 8px; font-weight: 500;}
@@ -321,61 +302,30 @@ export default function Historial() {
             .info-box { border: 2px solid #eee; padding: 10px; border-radius: 8px; }
             .info-box .label { border: none; color: #666; margin-bottom: 2px;}
             .info-box .val { font-size: 16px; font-weight: bold; color: #000; }
-            .codigo-barras {
-              height: 50px;
-              background: repeating-linear-gradient(90deg, #000, #000 3px, #fff 3px, #fff 5px, #000 5px, #000 6px, #fff 6px, #fff 10px);
-              margin: auto 0 20px 0;
-              border: 1px solid #ddd;
-            }
+            .codigo-barras { height: 50px; background: repeating-linear-gradient(90deg, #000, #000 3px, #fff 3px, #fff 5px, #000 5px, #000 6px, #fff 6px, #fff 10px); margin: auto 0 20px 0; border: 1px solid #ddd; }
             .footer { text-align: center; font-size: 13px; color: #666; border-top: 2px dashed #ccc; padding-top: 15px; }
           </style>
         </head>
         <body>
           <div class="etiqueta-a5">
-            <div class="header">
-              <h1>WasiPlant</h1>
-              <p>Envío Prioritario 🌿</p>
-            </div>
-            
+            <div class="header"><h1>WasiPlant</h1><p>Envío Prioritario 🌿</p></div>
             <div class="seccion destacado">
               <span class="label">Destinatario</span>
               <div class="valor-grande">${nombre}</div>
               <div class="valor-mediano">📱 Celular: ${celular} <br> 🪪 DNI: ${dni}</div>
             </div>
-
             <div class="seccion">
               <span class="label">Datos de Envío</span>
-              <div class="valor-mediano">
-                <strong>[ ${modalidad.toUpperCase()} ]</strong><br><br>
-                ${destino || 'Pendiente de confirmación'}
-              </div>
+              <div class="valor-mediano"><strong>[ ${modalidad.toUpperCase()} ]</strong><br><br>${destino || 'Pendiente de confirmación'}</div>
             </div>
-
             <div class="info-grid">
-              <div class="info-box">
-                <div class="label">N° de Pedido</div>
-                <div class="val">#${codigoPedido}</div>
-              </div>
-              <div class="info-box">
-                <div class="label">Fecha / Bultos</div>
-                <div class="val">${fechaFormateada} / ${caja.cantidadPlantas} plantas</div>
-              </div>
+              <div class="info-box"><div class="label">N° de Pedido</div><div class="val">#${codigoPedido}</div></div>
+              <div class="info-box"><div class="label">Fecha / Bultos</div><div class="val">${fechaFormateada} / ${caja.cantidadPlantas} plantas</div></div>
             </div>
-
             <div class="codigo-barras"></div>
-
-            <div class="footer">
-              <strong>¡Cuidado! Plantas Vivas 💚 🌱</strong><br>
-              Gracias por tu compra en TikTok: @wasiplant
-            </div>
+            <div class="footer"><strong>¡Cuidado! Plantas Vivas 💚 🌱</strong><br>Gracias por tu compra en TikTok: @wasiplant</div>
           </div>
-          <script>
-            window.onload = () => {
-              window.print();
-              /* Se cierra automáticamente después de imprimir o cancelar */
-              setTimeout(() => window.close(), 1000); 
-            };
-          </script>
+          <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 1000); };</script>
         </body>
       </html>
     `;
@@ -412,20 +362,12 @@ export default function Historial() {
 
   const cambiarEstadoEnvio = async (caja: any, nuevoEstado: string, estadoActual: string) => {
     if (estadoActual === 'enviado') return alert("Este pedido ya fue enviado y está bloqueado.");
-    if (nuevoEstado === 'enviado') {
-        if (!window.confirm("📦 ALERTA: Al marcar como 'Pedido Enviado', este registro se BLOQUEARÁ. ¿Deseas continuar?")) return;
-    }
+    if (nuevoEstado === 'enviado' && !window.confirm("📦 ALERTA: Al marcar como 'Pedido Enviado', este registro se BLOQUEARÁ. ¿Continuar?")) return;
     setCargando(true);
     await supabase.from('cajas').update({ 
-      estado_envio: nuevoEstado,
-      tipo_entrega: caja.tipo_entrega,
-      courier: caja.courier,
-      agencia_departamento: caja.agencia_departamento,
-      agencia_provincia: caja.agencia_provincia,
-      agencia_distrito: caja.agencia_distrito,
-      agencia_direccion: caja.agencia_direccion
+      estado_envio: nuevoEstado, tipo_entrega: caja.tipo_entrega, courier: caja.courier,
+      agencia_departamento: caja.agencia_departamento, agencia_provincia: caja.agencia_provincia, agencia_distrito: caja.agencia_distrito, agencia_direccion: caja.agencia_direccion
     }).eq('id', caja.id);
-    
     if (nuevoEstado === 'enviado') setFilaExpandida(null); 
     cargarHistorial();
   };
@@ -436,7 +378,6 @@ export default function Historial() {
   const cajasFiltradas = cajas.filter(caja => {
     const termino = busqueda.toLowerCase();
     const cliente = caja.clientes || {};
-    
     const coincideBusqueda = (
       (cliente.usuario_tiktok || '').toLowerCase().includes(termino) ||
       (cliente.nombre_completo || '').toLowerCase().includes(termino) ||
@@ -499,7 +440,6 @@ export default function Historial() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {/* NUEVO DISEÑO RESPONSIVE: En móviles se ocultan columnas secundarias para evitar el scroll horizontal */}
         <div className="w-full">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -531,11 +471,9 @@ export default function Historial() {
                         <td className="p-3 md:p-4 text-gray-400">{filaExpandida === caja.id ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}</td>
                         <td className="hidden lg:table-cell p-3 md:p-4 font-semibold text-gray-800 text-sm whitespace-nowrap">{dia}</td>
                         
-                        {/* COLUMNA PRINCIPAL (Visible siempre): En móvil agrupa nombre, fecha y estado de pago */}
                         <td className="p-3 md:p-4">
                           <span className="font-bold text-green-700 bg-green-50 px-2 py-1 rounded-lg text-sm whitespace-nowrap">@{caja.clientes?.usuario_tiktok}</span>
                           
-                          {/* ELEMENTOS SOLO VISIBLES EN MÓVIL (Menor a tamaño MD) */}
                           <div className="block lg:hidden mt-2 space-y-1">
                             <p className="text-[10px] text-gray-400 font-semibold">{dia}</p>
                             <div className="flex flex-wrap gap-1">
@@ -553,7 +491,6 @@ export default function Historial() {
                           {estaAbierta && <span className="block mt-1 text-[10px] text-blue-500 font-bold uppercase tracking-wider">🔴 Editando...</span>}
                         </td>
                         
-                        {/* COLUMNAS SECUNDARIAS (Se ocultan en móvil) */}
                         <td className="hidden md:table-cell p-3 md:p-4 text-center">
                           <div className="flex flex-col items-center justify-center text-xs">
                             {caja.tipo_entrega === 'agencia' ? (
@@ -592,7 +529,6 @@ export default function Historial() {
                           {estadoEnvio === 'enviado' && <span className="text-xs font-bold text-purple-700 bg-purple-100 px-3 py-1.5 rounded-full whitespace-nowrap"><Truck size={14} className="inline mb-0.5 mr-1"/> Enviado</span>}
                         </td>
                         
-                        {/* COLUMNA DE ACCIONES (Visible siempre) */}
                         <td className="p-3 md:p-4">
                           <div className="flex justify-center gap-1 md:gap-2">
                             <button onClick={(e) => abrirWhatsApp(e, caja.clientes?.celular)} title="Contactar por WhatsApp" className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"><MessageCircle size={18} /></button>
@@ -610,7 +546,6 @@ export default function Historial() {
                         </td>
                       </tr>
 
-                      {/* FILA EXPANDIDA: Muestra todo el detalle de la compra. */}
                       {filaExpandida === caja.id && (
                         <tr>
                           <td colSpan={8} className="bg-gray-50/50 p-0 border-b border-gray-100">
@@ -620,8 +555,10 @@ export default function Historial() {
                                 <div className="flex-1">
                                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                                     <h4 className="font-bold text-gray-800 flex items-center gap-2"><Package size={20} className="text-green-600"/> Resumen de Plantas</h4>
-                                    <button onClick={() => copiarResumen(caja)} className="flex items-center justify-center w-full sm:w-auto gap-2 bg-green-50 text-green-700 hover:bg-green-100 px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-green-200">
-                                      <Copy size={16} /> Copiar Mensaje
+                                    
+                                    {/* ✅ NUEVO BOTÓN: Enviar resumen por WhatsApp directo */}
+                                    <button onClick={() => enviarResumenWhatsApp(caja)} className="flex items-center justify-center w-full sm:w-auto gap-2 bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-sm">
+                                      <Send size={16} /> Enviar por WhatsApp 📲
                                     </button>
                                   </div>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
