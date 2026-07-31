@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 // ✅ Solución definitiva: Usar el alias profesional de Next.js
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 import { Search, Calendar, Package, DollarSign, CheckCircle2, Clock, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Building2, Home, User, Printer, MessageCircle, Send } from 'lucide-react';
 
 export default function Historial() {
