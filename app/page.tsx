@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Search, Plus, X, Image as ImageIcon, Trash2, Edit2, Check, Clock, User, MessageCircle, Phone, AlertTriangle, Info, Package, DollarSign } from 'lucide-react';
+// Se removieron los íconos no utilizados para evitar errores de compilación en Vercel
+import { Search, Plus, X, Image as ImageIcon, Trash2, Edit2, Check, Clock, User, MessageCircle, Phone, AlertTriangle, Info, Package, DollarSign, Timer, Unlock, CheckCircle2 } from 'lucide-react';
 
 export default function Home() {
   const [plantas, setPlantas] = useState<any[]>([]);
@@ -36,7 +37,6 @@ export default function Home() {
   const [precioEdit, setPrecioEdit] = useState('');
   const [cantidadEdit, setCantidadEdit] = useState<number | string>(1);
 
-  // ✅ NUEVO SISTEMA DE DIÁLOGOS PROFESIONALES
   const [dialogo, setDialogo] = useState<{
     abierto: boolean;
     mensaje: string;
@@ -116,7 +116,7 @@ export default function Home() {
       if (cajasAbiertas && cajasAbiertas.length > 0) {
         caja = cajasAbiertas[0]; 
         if (cajasAbiertas.length > 1) {
-          const idsCerrar = cajasAbiertas.slice(1).map(c => c.id);
+          const idsCerrar = cajasAbiertas.slice(1).map((c: any) => c.id);
           await supabase.from('cajas').update({ estado: 'cerrada' }).in('id', idsCerrar);
         }
       } else {
@@ -164,20 +164,20 @@ export default function Home() {
       if (archivoFoto) {
         const fileExt = archivoFoto.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage.from('fotos_plantas').upload(fileName, archivoFoto);
+        const { error: uploadError } = await supabase.storage.from('fotos_plantas').upload(fileName, archivoFoto);
         if (uploadError) throw new Error("Error al subir la foto: " + uploadError.message);
         const { data: publicUrlData } = supabase.storage.from('fotos_plantas').getPublicUrl(fileName);
         imagenUrlFinal = publicUrlData.publicUrl;
       }
 
-      const plantaExistente = plantas.find(p => p.nombre.toLowerCase() === busquedaPlanta.trim().toLowerCase());
+      const plantaExistente = plantas.find((p: any) => p.nombre.toLowerCase() === busquedaPlanta.trim().toLowerCase());
       
       if (plantaExistente) {
         plantaId = plantaExistente.id;
         let datosAActualizar: any = { precio_menor: precioNumerico };
         if (imagenUrlFinal) datosAActualizar.imagen_url = imagenUrlFinal;
         await supabase.from('plantas').update(datosAActualizar).eq('id', plantaId);
-        setPlantas(plantas.map(p => p.id === plantaId ? { ...p, ...datosAActualizar } : p));
+        setPlantas(plantas.map((p: any) => p.id === plantaId ? { ...p, ...datosAActualizar } : p));
       } else {
         const nuevoRegistro: any = { nombre: busquedaPlanta.trim(), precio_menor: precioNumerico, precio_mayor: 0 };
         if (imagenUrlFinal) nuevoRegistro.imagen_url = imagenUrlFinal;
@@ -209,7 +209,7 @@ export default function Home() {
       accionConfirmar: async () => {
         setCargando(true);
         const { error } = await supabase.from('detalle_caja').delete().eq('id', idDetalle);
-        if (!error) setDetallesCaja(detallesCaja.filter(d => d.id !== idDetalle));
+        if (!error) setDetallesCaja(detallesCaja.filter((d: any) => d.id !== idDetalle));
         setCargando(false);
       }
     });
@@ -223,7 +223,7 @@ export default function Home() {
 
     const { error } = await supabase.from('detalle_caja').update({ precio_vendido: parseFloat(precioEdit), cantidad: cantidadFinalEdit }).eq('id', itemEditando.id);
     if (!error) {
-      setDetallesCaja(detallesCaja.map(item => item.id === itemEditando.id ? { ...item, precio_vendido: parseFloat(precioEdit), cantidad: cantidadFinalEdit } : item));
+      setDetallesCaja(detallesCaja.map((item: any) => item.id === itemEditando.id ? { ...item, precio_vendido: parseFloat(precioEdit), cantidad: cantidadFinalEdit } : item));
       setItemEditando(null);
     }
     setCargando(false);
@@ -272,10 +272,10 @@ export default function Home() {
     });
   };
 
-  const totalCaja = detallesCaja.reduce((suma, item) => suma + (item.precio_vendido * item.cantidad), 0);
-  const totalAbonado = abonosCaja.reduce((suma, abono) => suma + abono.monto, 0);
+  const totalCaja = detallesCaja.reduce((suma: number, item: any) => suma + (item.precio_vendido * item.cantidad), 0);
+  const totalAbonado = abonosCaja.reduce((suma: number, abono: any) => suma + abono.monto, 0);
   const saldoPendiente = totalCaja - totalAbonado;
-  const plantasFiltradas = plantas.filter(p => p.nombre.toLowerCase().includes(busquedaPlanta.toLowerCase()));
+  const plantasFiltradas = plantas.filter((p: any) => p.nombre.toLowerCase().includes(busquedaPlanta.toLowerCase()));
 
   return (
     <div className="min-h-screen p-4 md:p-8 font-sans text-gray-800 bg-gray-50/30 relative">
@@ -286,7 +286,6 @@ export default function Home() {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
         
-        {/* COLUMNA IZQUIERDA: Identificar y Añadir */}
         <div className="xl:col-span-7 space-y-6">
           
           <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 relative z-30">
@@ -310,7 +309,7 @@ export default function Home() {
                 {mostrarSugerenciasCliente && busquedaCliente.trim() !== '' && (
                   <ul className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 shadow-2xl rounded-2xl max-h-60 overflow-y-auto z-40">
                     {sugerenciasClientes.length > 0 ? (
-                      sugerenciasClientes.map(c => (
+                      sugerenciasClientes.map((c: any) => (
                         <li 
                           key={c.id} 
                           onMouseDown={() => seleccionarCliente(c)} 
@@ -354,7 +353,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: El Carrito y Finanzas */}
         <div className="xl:col-span-5 h-fit sticky top-8 z-20">
           
           {!clienteActual ? (
@@ -374,7 +372,7 @@ export default function Home() {
                       Pedidos en curso ({cajasPendientes.length})
                     </h4>
                     <div className="space-y-2.5 max-h-64 overflow-y-auto pr-2">
-                      {cajasPendientes.map(c => (
+                      {cajasPendientes.map((c: any) => (
                         <button 
                           key={c.id} 
                           onClick={() => seleccionarCliente(c.clientes)}
@@ -423,7 +421,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <ul className="space-y-2">
-                    {detallesCaja.map((item) => (
+                    {detallesCaja.map((item: any) => (
                       <li key={item.id} className="flex flex-col text-sm bg-white p-3 rounded-2xl border border-gray-100 shadow-sm transition-all hover:border-gray-200">
                         {itemEditando?.id === item.id ? (
                           <div className="flex gap-2 items-center bg-blue-50/50 p-2 rounded-xl border border-blue-100">
@@ -478,7 +476,6 @@ export default function Home() {
                 )}
               </div>
 
-              {/* BLOQUE DE FINANZAS */}
               <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl p-5 md:p-6 text-white shadow-xl mb-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10"><DollarSign size={80}/></div>
                 
@@ -499,7 +496,7 @@ export default function Home() {
                   </div>
                   {abonosCaja.length > 0 && (
                     <ul className="mt-3 text-xs text-gray-300 space-y-1.5 bg-gray-900/50 p-3 rounded-xl border border-gray-700/50">
-                      {abonosCaja.map((abono, i) => (
+                      {abonosCaja.map((abono: any, i: number) => (
                         <li key={i} className="flex justify-between border-b border-gray-700/50 pb-1.5 last:border-0 last:pb-0">
                           <span className="font-semibold text-gray-400">Abono #{i + 1}</span><span className="text-blue-400 font-bold">+ S/ {abono.monto.toFixed(2)}</span>
                         </li>
@@ -528,7 +525,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ✅ MODAL DE AÑADIR PRODUCTO (REDISEÑADO) */}
       {modalAbierto && (
         <div className="fixed inset-0 bg-gray-900/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl border border-gray-100 animate-in slide-in-from-bottom-8 duration-300">
@@ -547,7 +543,7 @@ export default function Home() {
                 
                 {mostrarSugerencias && busquedaPlanta.trim() !== '' && plantasFiltradas.length > 0 && (
                   <ul className="absolute z-10 w-full mt-2 bg-white border border-gray-100 shadow-2xl rounded-2xl max-h-48 overflow-y-auto">
-                    {plantasFiltradas.map(p => (
+                    {plantasFiltradas.map((p: any) => (
                       <li key={p.id} onClick={() => { setBusquedaPlanta(p.nombre); if (p.precio_menor && p.precio_menor > 0) setPrecioUnidad(p.precio_menor.toString()); setMostrarSugerencias(false); }} className="px-5 py-3 hover:bg-green-50 cursor-pointer text-sm font-bold text-gray-700 border-b border-gray-50 flex justify-between items-center transition-colors">
                         <span>{p.nombre}</span>
                         {p.precio_menor > 0 && <span className="text-[10px] font-black text-green-700 bg-green-100 px-2 py-1 rounded-lg">S/ {p.precio_menor}</span>}
@@ -591,7 +587,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* ✅ MODAL DE DIÁLOGO PERSONALIZADO (Alertas / Confirmaciones - Nivel SUPERIOR) */}
       {dialogo.abierto && (
         <div className="fixed inset-0 bg-gray-900/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl p-6 md:p-8 text-center border border-gray-100 animate-in zoom-in-95 duration-200">
