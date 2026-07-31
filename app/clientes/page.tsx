@@ -73,7 +73,7 @@ export default function Clientes() {
   return (
     <div className="min-h-screen p-6 md:p-8 font-sans text-gray-800">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-green-700">👥 Directorio de Clientes</h1>
+        <h1 className="text-3xl font-bold text-green-700"> Directorio de Clientes</h1>
         <p className="text-gray-500">Gestión de contactos y seguimiento de estado</p>
       </header>
 
@@ -82,7 +82,7 @@ export default function Clientes() {
           <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
           <input 
             type="text" 
-            placeholder="Buscar por @usuario, nombre, DNI o celular..." 
+            placeholder="Buscar cliente..." 
             className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 outline-none transition-all text-sm" 
             value={busqueda} 
             onChange={(e) => setBusqueda(e.target.value)} 
@@ -151,7 +151,7 @@ export default function Clientes() {
 
                 <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
                   <div className="text-sm font-mono text-gray-600">
-                    {cliente.celular ? cliente.celular : 'Sin celular'}
+                    {cliente.celular ? cliente.celular : 'Celular no registrado'}
                   </div>
                   <button 
                     onClick={() => abrirWhatsApp(cliente.celular)}

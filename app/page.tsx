@@ -280,8 +280,8 @@ export default function Home() {
   return (
     <div className="min-h-screen p-4 md:p-8 font-sans text-gray-800 bg-gray-50/30 relative">
       <header className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-black text-green-700 tracking-tight">🌱 Panel en Vivo</h1>
-        <p className="text-sm md:text-base text-gray-500 font-medium">Gestión dinámica de pedidos (Mobile First)</p>
+        <h1 className="text-2xl md:text-3xl font-black text-green-700 tracking-tight">Gestión de pedidos</h1>
+        <p className="text-sm md:text-base text-gray-500 font-medium">Gestión de  pedidos</p>
       </header>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
@@ -290,14 +290,14 @@ export default function Home() {
           
           <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 relative z-30">
             <h2 className="text-lg md:text-xl font-black mb-5 text-gray-800 flex items-center gap-2">
-              <User size={22} className="text-green-600"/> 1. Identificar Cliente
+              <User size={22} className="text-green-600"/> Clientes
             </h2>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <span className="absolute left-4 top-4 text-gray-400"><Search size={20} /></span>
                 <input 
                   type="text" 
-                  placeholder="Buscar por @usuario, nombre o DNI..." 
+                  placeholder="Buscar clientes..." 
                   className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-200 shadow-sm focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition-all bg-gray-50/50 font-medium" 
                   value={busquedaCliente} 
                   onChange={(e) => buscarClientesEnTiempoReal(e.target.value)} 
@@ -339,13 +339,13 @@ export default function Home() {
                 className="bg-gray-800 hover:bg-gray-900 text-white font-bold py-3.5 px-6 rounded-2xl disabled:opacity-50 transition-colors whitespace-nowrap shadow-md w-full sm:w-auto flex items-center justify-center gap-2"
               >
                 {cargando ? <Timer size={18} className="animate-spin"/> : <Unlock size={18}/>}
-                {cargando ? 'Abriendo...' : 'Abrir Caja'}
+                {cargando ? 'Abriendo...' : 'Abrir Carrito'}
               </button>
             </div>
           </div>
 
           <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm min-h-[250px] flex flex-col items-center justify-center border-dashed border-2 border-gray-200">
-            <h2 className="text-xl font-black mb-3 text-gray-800 text-center flex items-center gap-2"><Package size={22} className="text-gray-400"/> 2. Agregar Productos</h2>
+            <h2 className="text-xl font-black mb-3 text-gray-800 text-center flex items-center gap-2"><Package size={22} className="text-gray-400"/> Agregar Productos</h2>
             <p className="text-gray-400 mb-6 text-center text-sm font-medium max-w-sm">Abre la caja de un cliente arriba para poder empezar a registrar sus plantas y compras.</p>
             <button onClick={() => setModalAbierto(true)} disabled={!cajaActual} className="flex items-center justify-center gap-2 bg-green-100 text-green-700 hover:bg-green-200 hover:-translate-y-1 font-black py-4 px-8 rounded-2xl transition-all disabled:opacity-50 disabled:hover:translate-y-0 w-full sm:w-auto shadow-sm">
               <Plus size={24} /> Añadir Producto al Carrito
@@ -359,8 +359,8 @@ export default function Home() {
             <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col items-center justify-center py-12">
               <div className="bg-gray-50 w-full rounded-3xl p-8 text-center border border-gray-100 border-dashed">
                 <Clock className="mx-auto text-gray-300 mb-4" size={48} />
-                <h3 className="text-gray-500 font-black mb-2 text-lg">Caja inactiva</h3>
-                <p className="text-sm text-gray-400 mb-8 font-medium">Busca a un cliente para empezar a registrar su pedido actual.</p>
+                <h3 className="text-gray-500 font-black mb-2 text-lg">Pedidos en espera</h3>
+                <p className="text-sm text-gray-400 mb-8 font-medium">Selccione a un cliente para empezar a registrar su pedido actual.</p>
                 
                 {cajasPendientes.length > 0 && (
                   <div className="text-left border-t border-gray-200 pt-6">
@@ -571,7 +571,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">Foto (Opcional pero recomendada)</label>
+                <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">Foto del producto</label>
                 <div onClick={() => inputArchivoRef.current?.click()} className="border-2 border-dashed border-gray-200 rounded-2xl p-5 flex flex-col items-center justify-center text-gray-400 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer overflow-hidden relative">
                   {previewFoto ? <img src={previewFoto} alt="Preview" className="h-32 object-contain rounded-xl shadow-sm" /> : <><ImageIcon size={32} className="mb-3 text-gray-300" /><span className="text-xs font-semibold text-center text-gray-500">Haz clic aquí para subir o tomar foto</span></>}
                   <input type="file" accept="image/*" capture="environment" ref={inputArchivoRef} onChange={manejarSubidaFoto} className="hidden"/>

@@ -403,7 +403,7 @@ export default function Historial() {
   return (
     <div className="min-h-screen p-4 md:p-8 font-sans text-gray-800 bg-gray-50/30 relative">
       <header className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-black text-green-700 tracking-tight">🕒 Historial Logístico</h1>
+        <h1 className="text-2xl md:text-3xl font-black text-green-700 tracking-tight">Área de Logística</h1>
         <p className="text-sm md:text-base text-gray-500 font-medium">Gestión de envíos y cobranzas</p>
       </header>
 
@@ -411,7 +411,7 @@ export default function Historial() {
       <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-200 mb-8 grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="relative w-full lg:col-span-5">
           <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
-          <input type="text" placeholder="Buscar cliente, DNI, o distrito..." className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 focus:border-green-500 outline-none text-sm font-medium bg-gray-50/50" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+          <input type="text" placeholder="Buscar clientes..." className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 focus:border-green-500 outline-none text-sm font-medium bg-gray-50/50" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
         </div>
         
         <div className="lg:col-span-7 flex flex-col sm:flex-row items-center gap-3">
@@ -487,7 +487,7 @@ export default function Historial() {
       {!mostrarAntiguos && !fechaInicio && !fechaFin && !busqueda && (
         <div className="mt-8 flex justify-center">
           <button onClick={() => setMostrarAntiguos(true)} className="text-sm font-black text-gray-500 hover:text-green-700 bg-white border border-gray-200 px-8 py-3.5 rounded-2xl shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
-            Cargar historial antiguo (más de 7 días)
+            Cargar más pedidos
           </button>
         </div>
       )}
@@ -538,7 +538,7 @@ export default function Historial() {
                 </div>
 
                 <div className="w-full xl:w-80 bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-3xl p-6 shadow-sm h-fit">
-                  <h4 className="font-black text-blue-900 mb-5 flex items-center gap-2 text-base"><DollarSign size={18} className="text-blue-600"/> Finanzas</h4>
+                  <h4 className="font-black text-blue-900 mb-5 flex items-center gap-2 text-base"><DollarSign size={18} className="text-blue-600"/> Detalles de pago</h4>
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm text-gray-600 font-medium"><span>Costo Total:</span> <span className="text-gray-900 font-bold">S/ {cajaActiva.totalCaja.toFixed(2)}</span></div>
                     <div className="flex justify-between text-sm text-gray-600 font-medium"><span>Abonado:</span> <span className="text-blue-600 font-bold">- S/ {cajaActiva.totalAbonado.toFixed(2)}</span></div>
