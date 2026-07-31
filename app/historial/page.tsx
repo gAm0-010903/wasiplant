@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Search, Calendar, Package, DollarSign, CheckCircle2, Clock, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Copy, Building2, Home, User, Printer, MessageCircle, Phone } from 'lucide-react';
+import { Search, Calendar, Package, DollarSign, CheckCircle2, Clock, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Copy, Building2, Home, User, Printer, MessageCircle, Phone, Send } from 'lucide-react';
 
 export default function Historial() {
   const [cajas, setCajas] = useState<any[]>([]);
@@ -196,8 +196,10 @@ export default function Historial() {
     setCargando(false);
   };
 
-  const copiarResumen = async (caja: any) => {
+  // NUEVO: Función optimizada que te lleva directo a WhatsApp
+  const enviarResumenWhatsApp = async (caja: any) => {
     const nombre = caja.clientes?.nombre_completo || `@${caja.clientes?.usuario_tiktok}`;
+    const celular = caja.clientes?.celular;
     const fechaObj = new Date(caja.created_at);
     const dd = String(fechaObj.getDate()).padStart(2, '0');
     const mm = String(fechaObj.getMonth() + 1).padStart(2, '0');
@@ -208,13 +210,13 @@ export default function Historial() {
     texto += `🔑 *CLAVE DE PEDIDO:* ${claveSecreta}\n\n`;
     texto += `📦 *PLANTAS ELEGIDAS:*\n`;
     caja.detalle_caja.forEach((item: any) => {
-      texto += `- ${item.cantidad}x ${item.plantas?.nombre} (S/ ${item.precio_vendido.toFixed(2)}) = S/ ${(item.cantidad * item.precio_vendido).toFixed(2)}\n`;
+      texto += `- ${item.cantidad}x ${item.plantas?.nombre} (S/ ${item.precio_vendido.toFixed(2)})\n`;
     });
     
     texto += `\n💰 *DETALLE DE PAGO:*\n`;
     texto += `Total del pedido: S/ ${caja.totalCaja.toFixed(2)}\n`;
-    texto += `Monto abonado: S/ ${caja.totalAbonado.toFixed(2)}\n`;
-    texto += `Saldo pendiente: S/ ${caja.saldo.toFixed(2)}\n\n`;
+    if (caja.totalAbonado > 0) texto += `Monto abonado: S/ ${caja.totalAbonado.toFixed(2)}\n`;
+    texto += `*Saldo pendiente: S/ ${caja.saldo.toFixed(2)}*\n\n`;
     
     texto += `📍 *LUGAR DE ENVÍO:*\n`;
     if (caja.tipo_entrega === 'agencia') {
@@ -230,17 +232,26 @@ export default function Historial() {
     
     texto += `\n¡Muchísimas gracias por tu preferencia! 💚`;
     
+    // Lo copiamos al portapapeles por seguridad (fondo)
     try {
       await navigator.clipboard.writeText(texto);
-      alert("¡Mensaje copiado! Listo para enviarlo a tu cliente.");
     } catch (err) {
-      alert("Error al copiar el texto.");
+      console.log("No se pudo copiar el texto automáticamente.");
+    }
+
+    // Lógica para abrir WhatsApp inteligentemente
+    if (celular) {
+      const numeroLimpio = celular.replace(/\D/g, '');
+      const numeroFinal = numeroLimpio.startsWith('51') ? numeroLimpio : `51${numeroLimpio}`;
+      window.open(`https://wa.me/${numeroFinal}?text=${encodeURIComponent(texto)}`, '_blank');
+    } else {
+      // Si no hay celular registrado, abre la app para que escojas a quién mandárselo
+      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
     }
   };
 
-  // NUEVO: Generar etiqueta de envío en formato PDF
   const generarEtiquetaPDF = (e: React.MouseEvent, caja: any) => {
-    e.stopPropagation(); // Evita que se expanda la fila
+    e.stopPropagation(); 
     const ventana = window.open('', '_blank');
     if (!ventana) return;
 
@@ -252,43 +263,128 @@ export default function Historial() {
     let destino = '';
     if (caja.tipo_entrega === 'agencia') {
       destino = [caja.agencia_distrito, caja.agencia_provincia, caja.agencia_departamento].filter(Boolean).join(', ');
-      if (caja.agencia_direccion) destino += ` <br><span style="font-size: 14px; font-weight: normal; color: #444;">Ref: ${caja.agencia_direccion}</span>`;
+      if (caja.agencia_direccion) destino += ` <br><span style="font-size: 15px; font-weight: normal; color: #444;">Ref: ${caja.agencia_direccion}</span>`;
     } else {
       destino = [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ');
-      if (caja.clientes?.direccion) destino += ` <br><span style="font-size: 14px; font-weight: normal; color: #444;">Dir: ${caja.clientes?.direccion}</span>`;
+      if (caja.clientes?.direccion) destino += ` <br><span style="font-size: 15px; font-weight: normal; color: #444;">Dir: ${caja.clientes?.direccion}</span>`;
     }
 
+    const fechaFormateada = new Date(caja.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const codigoPedido = caja.id.substring(0, 8).toUpperCase();
+
     const html = `
-      <html>
+      <!DOCTYPE html>
+      <html lang="es">
         <head>
+          <meta charset="UTF-8">
           <title>Etiqueta - ${nombre}</title>
           <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; max-width: 380px; margin: 0 auto; border: 2px dashed #333; border-radius: 10px; }
-            h2 { text-align: center; margin-bottom: 25px; font-size: 26px; text-transform: uppercase; color: #166534; border-bottom: 2px solid #166534; padding-bottom: 10px; }
-            .dato { margin-bottom: 15px; font-size: 18px; line-height: 1.4; }
-            .etiqueta { font-weight: bold; color: #666; font-size: 13px; display: block; margin-bottom: 3px; text-transform: uppercase;}
-            .valor { font-weight: 900; font-size: 20px; color: #111; }
-            .footer { text-align: center; margin-top: 40px; font-size: 14px; color: #777; font-style: italic; border-top: 1px solid #ccc; padding-top: 15px;}
+            @media print {
+              @page { size: A5 portrait; margin: 0; }
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
+            body { 
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+              margin: 0; 
+              padding: 0; 
+              background-color: #f9f9f9; 
+              display: flex; 
+              justify-content: center; 
+              align-items: center;
+              min-height: 100vh;
+            }
+            .etiqueta-a5 {
+              width: 148mm;
+              height: 210mm;
+              background: #fff;
+              border: 2px solid #000;
+              box-sizing: border-box;
+              padding: 12mm 10mm;
+              display: flex;
+              flex-direction: column;
+              box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+            }
+            .header {
+              text-align: center;
+              border-bottom: 4px solid #166534;
+              padding-bottom: 12px;
+              margin-bottom: 15px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 34px;
+              text-transform: uppercase;
+              color: #166534;
+              letter-spacing: 2px;
+            }
+            .header p { margin: 5px 0 0 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold; }
+            .seccion { margin-bottom: 22px; }
+            .destacado {
+              background-color: #f0fdf4;
+              border: 2px solid #bbf7d0;
+              padding: 15px;
+              border-radius: 12px;
+            }
+            .label { font-size: 13px; text-transform: uppercase; font-weight: 800; color: #166534; margin-bottom: 6px; display: block; border-bottom: 1px solid #dcfce7; padding-bottom: 4px; }
+            .valor-grande { font-size: 26px; font-weight: 900; line-height: 1.1; color: #111; text-transform: uppercase; }
+            .valor-mediano { font-size: 18px; line-height: 1.4; color: #222; margin-top: 8px; font-weight: 500;}
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+            .info-box { border: 2px solid #eee; padding: 10px; border-radius: 8px; }
+            .info-box .label { border: none; color: #666; margin-bottom: 2px;}
+            .info-box .val { font-size: 16px; font-weight: bold; color: #000; }
+            .codigo-barras {
+              height: 50px;
+              background: repeating-linear-gradient(90deg, #000, #000 3px, #fff 3px, #fff 5px, #000 5px, #000 6px, #fff 6px, #fff 10px);
+              margin: auto 0 20px 0;
+              border: 1px solid #ddd;
+            }
+            .footer { text-align: center; font-size: 13px; color: #666; border-top: 2px dashed #ccc; padding-top: 15px; }
           </style>
         </head>
         <body>
-          <h2>📦 WasiPlant Envío</h2>
-          <div class="dato">
-            <span class="etiqueta">DESTINATARIO:</span>
-            <span class="valor">${nombre}</span>
+          <div class="etiqueta-a5">
+            <div class="header">
+              <h1>WasiPlant</h1>
+              <p>Envío Prioritario 🌿</p>
+            </div>
+            
+            <div class="seccion destacado">
+              <span class="label">Destinatario</span>
+              <div class="valor-grande">${nombre}</div>
+              <div class="valor-mediano">📱 Celular: ${celular} <br> 🪪 DNI: ${dni}</div>
+            </div>
+
+            <div class="seccion">
+              <span class="label">Datos de Envío</span>
+              <div class="valor-mediano">
+                <strong>[ ${modalidad.toUpperCase()} ]</strong><br><br>
+                ${destino || 'Pendiente de confirmación'}
+              </div>
+            </div>
+
+            <div class="info-grid">
+              <div class="info-box">
+                <div class="label">N° de Pedido</div>
+                <div class="val">#${codigoPedido}</div>
+              </div>
+              <div class="info-box">
+                <div class="label">Fecha / Bultos</div>
+                <div class="val">${fechaFormateada} / ${caja.cantidadPlantas} plantas</div>
+              </div>
+            </div>
+
+            <div class="codigo-barras"></div>
+
+            <div class="footer">
+              <strong>¡Cuidado! Plantas Vivas 💚 🌱</strong><br>
+              Gracias por tu compra en TikTok: @wasiplant
+            </div>
           </div>
-          <div class="dato">
-            <span class="etiqueta">DNI / CELULAR:</span>
-            <span class="valor">${dni} - ${celular}</span>
-          </div>
-          <div class="dato">
-            <span class="etiqueta">DESTINO (${modalidad}):</span>
-            <span class="valor">${destino || 'No registrado'}</span>
-          </div>
-          <div class="footer">¡Gracias por comprar en nuestro TikTok Live! 🌿</div>
           <script>
-            window.print();
-            window.onafterprint = () => window.close();
+            window.onload = () => {
+              window.print();
+              setTimeout(() => window.close(), 1000); 
+            };
           </script>
         </body>
       </html>
@@ -297,9 +393,8 @@ export default function Historial() {
     ventana.document.close();
   };
 
-  // NUEVO: Abrir WhatsApp del cliente directamente
   const abrirWhatsApp = (e: React.MouseEvent, celular: string) => {
-    e.stopPropagation(); // Evita que se expanda la fila
+    e.stopPropagation(); 
     if (!celular) return alert("Este cliente no tiene un número de celular registrado.");
     const num = celular.replace(/\D/g, '');
     const numFinal = num.startsWith('51') ? num : `51${num}`;
@@ -380,16 +475,16 @@ export default function Historial() {
   });
 
   return (
-    <div className="min-h-screen p-6 md:p-8 font-sans text-gray-800">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-green-700">🕒 Historial de Ventas</h1>
-        <p className="text-gray-500">Gestión de pedidos, cobranzas y logística inteligente</p>
+    <div className="min-h-screen p-4 md:p-8 font-sans text-gray-800">
+      <header className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-green-700">🕒 Historial de Ventas</h1>
+        <p className="text-sm md:text-base text-gray-500">Gestión de pedidos, cobranzas y logística inteligente</p>
       </header>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
         <div className="relative w-full md:col-span-5">
           <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
-          <input type="text" placeholder="Buscar por @usuario, nombre, DNI, celular o distrito..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 outline-none transition-all text-sm" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+          <input type="text" placeholder="Buscar cliente o distrito..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 outline-none transition-all text-sm" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
         </div>
         
         <div className="md:col-span-7 flex flex-wrap xl:flex-nowrap items-center gap-3">
@@ -408,24 +503,24 @@ export default function Historial() {
             </div>
           </div>
           {(fechaInicio || fechaFin || busqueda) && (
-            <button onClick={() => {setFechaInicio(''); setFechaFin(''); setBusqueda('');}} className="text-xs font-bold text-red-500 hover:text-red-700 underline px-2">Limpiar</button>
+            <button onClick={() => {setFechaInicio(''); setFechaFin(''); setBusqueda('');}} className="text-xs font-bold text-red-500 hover:text-red-700 underline px-2 w-full md:w-auto text-center mt-2 md:mt-0">Limpiar Filtros</button>
           )}
         </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="w-full">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-sm">
-                <th className="p-4 font-semibold w-10"></th>
-                <th className="p-4 font-semibold">Fecha</th>
-                <th className="p-4 font-semibold">Cliente</th>
-                <th className="p-4 font-semibold text-center">Destino</th>
-                <th className="p-4 font-semibold text-center">Monto Total</th>
-                <th className="p-4 font-semibold text-center">Cobro</th>
-                <th className="p-4 font-semibold text-center">Logística</th>
-                <th className="p-4 font-semibold text-center">Acciones Rápidas</th>
+              <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs md:text-sm">
+                <th className="p-3 md:p-4 font-semibold w-8 md:w-10"></th>
+                <th className="hidden lg:table-cell p-3 md:p-4 font-semibold">Fecha</th>
+                <th className="p-3 md:p-4 font-semibold">Cliente y Estado</th>
+                <th className="hidden md:table-cell p-3 md:p-4 font-semibold text-center">Destino</th>
+                <th className="hidden lg:table-cell p-3 md:p-4 font-semibold text-center">Total</th>
+                <th className="hidden lg:table-cell p-3 md:p-4 font-semibold text-center">Cobro</th>
+                <th className="hidden md:table-cell p-3 md:p-4 font-semibold text-center">Logística</th>
+                <th className="p-3 md:p-4 font-semibold text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -442,14 +537,30 @@ export default function Historial() {
                   return (
                     <React.Fragment key={caja.id}>
                       <tr className={`hover:bg-green-50/30 transition-colors cursor-pointer ${estaBloqueado ? 'bg-gray-50/50' : ''}`} onClick={() => toggleFila(caja)}>
-                        <td className="p-4 text-gray-400">{filaExpandida === caja.id ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}</td>
-                        <td className="p-4 font-semibold text-gray-800 text-sm whitespace-nowrap">{dia}</td>
-                        <td className="p-4">
+                        <td className="p-3 md:p-4 text-gray-400">{filaExpandida === caja.id ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}</td>
+                        <td className="hidden lg:table-cell p-3 md:p-4 font-semibold text-gray-800 text-sm whitespace-nowrap">{dia}</td>
+                        
+                        <td className="p-3 md:p-4">
                           <span className="font-bold text-green-700 bg-green-50 px-2 py-1 rounded-lg text-sm whitespace-nowrap">@{caja.clientes?.usuario_tiktok}</span>
+                          
+                          <div className="block lg:hidden mt-2 space-y-1">
+                            <p className="text-[10px] text-gray-400 font-semibold">{dia}</p>
+                            <div className="flex flex-wrap gap-1">
+                              {estaPagado ? (
+                                <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">Cobrado</span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">Falta S/{caja.saldo.toFixed(2)}</span>
+                              )}
+                              {estadoEnvio === 'proceso' && <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">En Proceso</span>}
+                              {estadoEnvio === 'listo' && <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">Listo Enviar</span>}
+                              {estadoEnvio === 'enviado' && <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">Enviado</span>}
+                            </div>
+                          </div>
+
                           {estaAbierta && <span className="block mt-1 text-[10px] text-blue-500 font-bold uppercase tracking-wider">🔴 Editando...</span>}
                         </td>
                         
-                        <td className="p-4 text-center">
+                        <td className="hidden md:table-cell p-3 md:p-4 text-center">
                           <div className="flex flex-col items-center justify-center text-xs">
                             {caja.tipo_entrega === 'agencia' ? (
                               <>
@@ -469,8 +580,9 @@ export default function Historial() {
                           </div>
                         </td>
 
-                        <td className={`p-4 text-center font-bold text-gray-700 whitespace-nowrap`}>S/ {caja.totalCaja.toFixed(2)}</td>
-                        <td className="p-4">
+                        <td className={`hidden lg:table-cell p-3 md:p-4 text-center font-bold text-gray-700 whitespace-nowrap`}>S/ {caja.totalCaja.toFixed(2)}</td>
+                        
+                        <td className="hidden lg:table-cell p-3 md:p-4">
                           <div className="flex flex-col items-center justify-center">
                             {estaPagado ? (
                               <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1.5 rounded-full w-full max-w-[100px] text-center"><CheckCircle2 size={14} className="inline mr-1"/> OK</span>
@@ -479,50 +591,56 @@ export default function Historial() {
                             )}
                           </div>
                         </td>
-                        <td className="p-4 text-center">
+                        
+                        <td className="hidden md:table-cell p-3 md:p-4 text-center">
                           {estadoEnvio === 'proceso' && <span className="text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full whitespace-nowrap"><Timer size={14} className="inline mb-0.5 mr-1"/> Proceso</span>}
                           {estadoEnvio === 'listo' && <span className="text-xs font-bold text-blue-700 bg-blue-100 px-3 py-1.5 rounded-full whitespace-nowrap"><PackageCheck size={14} className="inline mb-0.5 mr-1"/> Listo</span>}
                           {estadoEnvio === 'enviado' && <span className="text-xs font-bold text-purple-700 bg-purple-100 px-3 py-1.5 rounded-full whitespace-nowrap"><Truck size={14} className="inline mb-0.5 mr-1"/> Enviado</span>}
                         </td>
                         
-                        {/* NUEVOS BOTONES DE ACCIONES RÁPIDAS EN LA FILA */}
-                        <td className="p-4">
-                          <div className="flex justify-center gap-2">
+                        <td className="p-3 md:p-4">
+                          <div className="flex justify-center gap-1 md:gap-2">
                             <button onClick={(e) => abrirWhatsApp(e, caja.clientes?.celular)} title="Contactar por WhatsApp" className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"><MessageCircle size={18} /></button>
-                            <button onClick={(e) => generarEtiquetaPDF(e, caja)} title="Generar Etiqueta PDF" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"><Printer size={18} /></button>
+                            <button onClick={(e) => generarEtiquetaPDF(e, caja)} title="Generar Etiqueta PDF A5" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"><Printer size={18} /></button>
                             
                             {estaBloqueado ? (
                               <span className="p-2 text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed" title="Pedido bloqueado"><Lock size={18} /></span>
                             ) : (
                               <>
-                                {!estaAbierta && <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} title="Editar en Panel" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Unlock size={18} /></button>}
-                                <button onClick={(e) => eliminarCaja(e, caja.id)} title="Eliminar Caja" className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} /></button>
+                                {!estaAbierta && <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} title="Editar en Panel" className="hidden md:block p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Unlock size={18} /></button>}
+                                <button onClick={(e) => eliminarCaja(e, caja.id)} title="Eliminar Caja" className="hidden md:block p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} /></button>
                               </>
                             )}
                           </div>
                         </td>
                       </tr>
 
+                      {/* --- NUEVO DISEÑO MÓVIL DEL RESUMEN EXPANDIDO --- */}
                       {filaExpandida === caja.id && (
                         <tr>
-                          <td colSpan={8} className="bg-gray-50/50 p-0 border-b border-gray-100">
-                            <div className="p-4 md:p-6 m-4 bg-white rounded-2xl shadow-sm border border-gray-200">
+                          <td colSpan={8} className="bg-gray-50/70 p-0 border-b border-gray-200 shadow-inner">
+                            {/* Eliminamos márgenes en móviles para usar todo el ancho */}
+                            <div className="p-4 md:p-6 bg-transparent">
                               
-                              <div className="flex flex-col xl:flex-row gap-8 mb-8">
+                              <div className="flex flex-col lg:flex-row gap-4 md:gap-8 mb-6">
                                 <div className="flex-1">
-                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-                                    <h4 className="font-bold text-gray-800 flex items-center gap-2"><Package size={20} className="text-green-600"/> Resumen de Plantas</h4>
-                                    <button onClick={() => copiarResumen(caja)} className="flex items-center gap-2 bg-green-50 text-green-700 hover:bg-green-100 px-4 py-2 rounded-lg font-bold text-sm transition-colors border border-green-200">
-                                      <Copy size={16} /> Copiar Mensaje
+                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-3">
+                                    <h4 className="font-bold text-gray-800 flex items-center gap-2 text-sm md:text-base"><Package size={18} className="text-green-600"/> Resumen de Plantas</h4>
+                                    
+                                    {/* BOTÓN INTELIGENTE DE WHATSAPP */}
+                                    <button onClick={() => enviarResumenWhatsApp(caja)} className="flex items-center justify-center w-full sm:w-auto gap-2 bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded-xl font-bold text-xs md:text-sm transition-colors shadow-sm">
+                                      <Send size={14} /> Enviar por WhatsApp
                                     </button>
                                   </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  
+                                  {/* Lista de plantas más compacta */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
                                     {caja.detalle_caja.map((item: any, idx: number) => (
-                                      <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                        {item.plantas?.imagen_url ? <img src={item.plantas.imagen_url} className="w-14 h-14 object-cover rounded-lg border border-gray-200" /> : <div className="w-14 h-14 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400"><ImageIcon size={24} /></div>}
+                                      <div key={idx} className="flex items-center gap-3 p-2.5 md:p-3 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                        {item.plantas?.imagen_url ? <img src={item.plantas.imagen_url} className="w-10 h-10 md:w-12 md:h-12 object-cover rounded-lg border border-gray-100" /> : <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400"><ImageIcon size={20} /></div>}
                                         <div className="flex-1">
-                                          <p className="font-bold text-gray-800 text-sm line-clamp-1">{item.plantas?.nombre}</p>
-                                          <p className="text-xs text-gray-500">{item.cantidad} x S/ {item.precio_vendido.toFixed(2)}</p>
+                                          <p className="font-bold text-gray-800 text-xs md:text-sm line-clamp-1">{item.plantas?.nombre}</p>
+                                          <p className="text-[10px] md:text-xs text-gray-500">{item.cantidad} x S/ {item.precio_vendido.toFixed(2)}</p>
                                         </div>
                                         <div className="font-black text-gray-700 text-sm">S/ {(item.cantidad * item.precio_vendido).toFixed(2)}</div>
                                       </div>
@@ -530,61 +648,55 @@ export default function Historial() {
                                   </div>
                                 </div>
 
-                                <div className="w-full xl:w-72 bg-blue-50/50 border border-blue-100 rounded-2xl p-5 h-fit">
-                                  <h4 className="font-bold text-blue-900 mb-4 flex items-center gap-2"><DollarSign size={20} className="text-blue-600"/> Detalle de Pago</h4>
-                                  <div className="space-y-3">
-                                    <div className="flex justify-between text-sm text-gray-600"><span>Total:</span> <span>S/ {caja.totalCaja.toFixed(2)}</span></div>
-                                    <div className="flex justify-between text-sm text-gray-600"><span>Abonado:</span> <span className="text-blue-600 font-bold">- S/ {caja.totalAbonado.toFixed(2)}</span></div>
-                                    <div className="pt-3 border-t border-blue-200 flex justify-between font-black text-lg">
-                                      <span className="text-gray-800">Saldo Final:</span>
+                                <div className="w-full lg:w-72 bg-blue-50/50 border border-blue-100 rounded-xl p-4 md:p-5 h-fit shadow-sm">
+                                  <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2 text-sm md:text-base"><DollarSign size={18} className="text-blue-600"/> Detalle de Pago</h4>
+                                  <div className="space-y-2 md:space-y-3">
+                                    <div className="flex justify-between text-xs md:text-sm text-gray-600"><span>Total:</span> <span>S/ {caja.totalCaja.toFixed(2)}</span></div>
+                                    <div className="flex justify-between text-xs md:text-sm text-gray-600"><span>Abonado:</span> <span className="text-blue-600 font-bold">- S/ {caja.totalAbonado.toFixed(2)}</span></div>
+                                    <div className="pt-2 md:pt-3 border-t border-blue-200 flex justify-between font-black text-base md:text-lg">
+                                      <span className="text-gray-800">Saldo:</span>
                                       <span className={caja.saldo > 0 ? 'text-orange-600' : 'text-green-600'}>S/ {caja.saldo.toFixed(2)}</span>
                                     </div>
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="border-t border-gray-100 pt-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                              <div className="border-t border-gray-200 pt-5 md:pt-6 grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-8">
                                 
-                                <div>
-                                  <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><MapPin size={18} className="text-red-500"/> Datos del Cliente y Envío</h4>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                  <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm md:text-base"><MapPin size={16} className="text-red-500"/> Ubicación y Datos</h4>
                                   
                                   {editandoEnvioId === caja.id ? (
-                                    <div className="space-y-4 bg-gray-50 p-5 rounded-xl border border-gray-200 animate-fade-in">
-                                      
-                                      <div className="space-y-3 pb-4 border-b border-gray-200">
-                                        <h5 className="text-xs font-black text-gray-500 uppercase tracking-wider flex items-center gap-1"><User size={14}/> 1. Información Personal</h5>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="space-y-4 animate-fade-in">
+                                      <div className="space-y-3 pb-4 border-b border-gray-100">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                           <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-1">Nombre Completo</label>
-                                            <input type="text" className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.nombre_completo} onChange={(e) => setFormEnvio({...formEnvio, nombre_completo: e.target.value})} placeholder="Ej. Juan Pérez" />
+                                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 mb-1">Nombre Completo</label>
+                                            <input type="text" className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.nombre_completo} onChange={(e) => setFormEnvio({...formEnvio, nombre_completo: e.target.value})} placeholder="Ej. Juan Pérez" />
                                           </div>
                                           <div>
-                                            <label className="block text-xs font-bold text-gray-600 mb-1">DNI <span className="text-gray-400 font-normal">(Opcional)</span></label>
-                                            <input type="text" maxLength={8} className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.dni} onChange={(e) => setFormEnvio({...formEnvio, dni: e.target.value.replace(/\D/g, '')})} placeholder="8 dígitos" />
+                                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 mb-1">DNI</label>
+                                            <input type="text" maxLength={8} className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.dni} onChange={(e) => setFormEnvio({...formEnvio, dni: e.target.value.replace(/\D/g, '')})} placeholder="8 dígitos" />
                                           </div>
-                                          <div className="md:col-span-2">
-                                            <label className="block text-xs font-bold text-gray-600 mb-1">Celular / WhatsApp <span className="text-gray-400 font-normal">(Opcional)</span></label>
-                                            <input type="text" className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.celular} onChange={(e) => setFormEnvio({...formEnvio, celular: e.target.value})} placeholder="Ej. 999888777" />
+                                          <div className="sm:col-span-2">
+                                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 mb-1">WhatsApp</label>
+                                            <input type="text" className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.celular} onChange={(e) => setFormEnvio({...formEnvio, celular: e.target.value})} placeholder="Ej. 999888777" />
                                           </div>
                                         </div>
                                       </div>
 
-                                      <h5 className="text-xs font-black text-gray-500 uppercase tracking-wider mt-2">2. Modalidad y Destino</h5>
                                       <div className="flex gap-2">
-                                        <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'agencia'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm transition-all border ${formEnvio.tipo_entrega === 'agencia' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}><Building2 size={16}/> Por Agencia</button>
-                                        <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'domicilio'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm transition-all border ${formEnvio.tipo_entrega === 'domicilio' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}><Home size={16}/> A Domicilio</button>
+                                        <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'agencia'})} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all border ${formEnvio.tipo_entrega === 'agencia' ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-500 border-gray-200'}`}><Building2 size={14}/> Agencia</button>
+                                        <button onClick={() => setFormEnvio({...formEnvio, tipo_entrega: 'domicilio'})} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all border ${formEnvio.tipo_entrega === 'domicilio' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-50 text-gray-500 border-gray-200'}`}><Home size={14}/> Domicilio</button>
                                       </div>
 
                                       {formEnvio.tipo_entrega === 'agencia' ? (
-                                        <div className="space-y-3 pt-2">
-                                          <label className="block text-xs font-bold text-gray-600">Empresa Courier</label>
-                                          <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 font-semibold" value={formEnvio.courier} onChange={(e) => setFormEnvio({...formEnvio, courier: e.target.value})}>
-                                            <option value="">Seleccione Empresa...</option>
+                                        <div className="space-y-2">
+                                          <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 font-semibold" value={formEnvio.courier} onChange={(e) => setFormEnvio({...formEnvio, courier: e.target.value})}>
+                                            <option value="">Courier...</option>
                                             {empresasCourier.map(emp => <option key={emp} value={emp}>{emp}</option>)}
                                           </select>
-
-                                          <label className="block text-xs font-bold text-gray-600 mt-2">Destino de la Agencia (Ubigeo)</label>
-                                          <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500" value={formEnvio.agencia_departamento} onChange={(e) => {
+                                          <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500" value={formEnvio.agencia_departamento} onChange={(e) => {
                                             actualizarListasUbigeo(e.target.value);
                                             setFormEnvio({...formEnvio, agencia_departamento: e.target.value, agencia_provincia: '', agencia_distrito: ''});
                                           }}>
@@ -592,14 +704,14 @@ export default function Historial() {
                                             {listaDepartamentos.map(d => <option key={d} value={d}>{d}</option>)}
                                           </select>
                                           <div className="grid grid-cols-2 gap-2">
-                                            <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 disabled:opacity-50" disabled={!formEnvio.agencia_departamento} value={formEnvio.agencia_provincia} onChange={(e) => {
+                                            <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 disabled:opacity-50" disabled={!formEnvio.agencia_departamento} value={formEnvio.agencia_provincia} onChange={(e) => {
                                               actualizarListasUbigeo(formEnvio.agencia_departamento, e.target.value);
                                               setFormEnvio({...formEnvio, agencia_provincia: e.target.value, agencia_distrito: ''});
                                             }}>
                                               <option value="">Provincia...</option>
                                               {listaProvincias.map(p => <option key={p} value={p}>{p}</option>)}
                                             </select>
-                                            <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 disabled:opacity-50" disabled={!formEnvio.agencia_provincia} value={formEnvio.agencia_distrito} onChange={(e) => {
+                                            <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500 disabled:opacity-50" disabled={!formEnvio.agencia_provincia} value={formEnvio.agencia_distrito} onChange={(e) => {
                                               setFormEnvio({...formEnvio, agencia_distrito: e.target.value});
                                               buscarAgenciasPrevias(e.target.value);
                                             }}>
@@ -607,17 +719,11 @@ export default function Historial() {
                                               {listaDistritos.map(d => <option key={d} value={d}>{d}</option>)}
                                             </select>
                                           </div>
-
-                                          <label className="block text-xs font-bold text-gray-600 mt-2">Nombre o Dirección de la Agencia</label>
-                                          <input type="text" placeholder="Ej. Agencia Principal, Frente a Plaza..." className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500" value={formEnvio.agencia_direccion} onChange={(e) => setFormEnvio({...formEnvio, agencia_direccion: e.target.value})} list="sugerenciasAgencias" />
-                                          <datalist id="sugerenciasAgencias">
-                                            {agenciasSugeridas.map((agencia, i) => <option key={i} value={agencia} />)}
-                                          </datalist>
+                                          <input type="text" placeholder="Ref. de Agencia..." className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-blue-500" value={formEnvio.agencia_direccion} onChange={(e) => setFormEnvio({...formEnvio, agencia_direccion: e.target.value})} list="sugerenciasAgencias" />
                                         </div>
                                       ) : (
-                                        <div className="space-y-3 pt-2">
-                                          <label className="block text-xs font-bold text-gray-600 mt-2">Ubigeo del Domicilio del Cliente</label>
-                                          <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.departamento} onChange={(e) => {
+                                        <div className="space-y-2">
+                                          <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.departamento} onChange={(e) => {
                                             actualizarListasUbigeo(e.target.value);
                                             setFormEnvio({...formEnvio, departamento: e.target.value, provincia: '', distrito: ''});
                                           }}>
@@ -625,70 +731,74 @@ export default function Historial() {
                                             {listaDepartamentos.map(d => <option key={d} value={d}>{d}</option>)}
                                           </select>
                                           <div className="grid grid-cols-2 gap-2">
-                                            <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 disabled:opacity-50" disabled={!formEnvio.departamento} value={formEnvio.provincia} onChange={(e) => {
+                                            <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 disabled:opacity-50" disabled={!formEnvio.departamento} value={formEnvio.provincia} onChange={(e) => {
                                               actualizarListasUbigeo(formEnvio.departamento, e.target.value);
                                               setFormEnvio({...formEnvio, provincia: e.target.value, distrito: ''});
                                             }}>
                                               <option value="">Provincia...</option>
                                               {listaProvincias.map(p => <option key={p} value={p}>{p}</option>)}
                                             </select>
-                                            <select className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 disabled:opacity-50" disabled={!formEnvio.provincia} value={formEnvio.distrito} onChange={(e) => setFormEnvio({...formEnvio, distrito: e.target.value})}>
+                                            <select className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 disabled:opacity-50" disabled={!formEnvio.provincia} value={formEnvio.distrito} onChange={(e) => setFormEnvio({...formEnvio, distrito: e.target.value})}>
                                               <option value="">Distrito...</option>
                                               {listaDistritos.map(d => <option key={d} value={d}>{d}</option>)}
                                             </select>
                                           </div>
-                                          
-                                          <label className="block text-xs font-bold text-gray-600 mt-2">Dirección Exacta <span className="text-gray-400 font-normal">(Calle, Mz, Lote, Ref)</span></label>
-                                          <input type="text" placeholder="Ej. Av. Los Pinos 123..." className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.direccion} onChange={(e) => setFormEnvio({...formEnvio, direccion: e.target.value})} />
+                                          <input type="text" placeholder="Dirección exacta..." className="w-full p-2 text-xs md:text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500" value={formEnvio.direccion} onChange={(e) => setFormEnvio({...formEnvio, direccion: e.target.value})} />
                                         </div>
                                       )}
                                       
-                                      <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
-                                        <button onClick={() => setEditandoEnvioId(null)} className="text-sm font-semibold text-gray-500 hover:text-gray-700 px-4 py-2 rounded-lg transition-colors">Cancelar</button>
-                                        <button onClick={() => guardarEnvio(caja)} disabled={cargando} className="bg-green-600 text-white text-sm font-bold px-5 py-2.5 rounded-lg hover:bg-green-700 flex items-center gap-2 shadow-md"><Save size={16}/> Guardar Datos</button>
+                                      <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
+                                        <button onClick={() => setEditandoEnvioId(null)} className="text-xs font-semibold text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg transition-colors">Cancelar</button>
+                                        <button onClick={() => guardarEnvio(caja)} disabled={cargando} className="bg-green-600 text-white text-xs md:text-sm font-bold px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-1.5"><Save size={14}/> Guardar</button>
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="flex items-center justify-between bg-gray-50 p-5 rounded-xl border border-gray-100 h-full">
-                                      <div className="flex flex-col">
-                                        <span className={`text-[10px] font-black uppercase tracking-wider mb-2 px-2 py-0.5 rounded-full w-fit ${caja.tipo_entrega === 'agencia' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                                    <div className="flex flex-col gap-3">
+                                      <div className="flex justify-between items-start">
+                                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${caja.tipo_entrega === 'agencia' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
                                           {caja.tipo_entrega === 'agencia' ? `🏢 AGENCIA: ${caja.courier || 'Pendiente'}` : '🏡 A DOMICILIO'}
                                         </span>
-                                        
-                                        {(caja.clientes?.nombre_completo || caja.clientes?.dni || caja.clientes?.celular) && (
-                                          <span className="text-xs text-gray-600 mb-1 flex items-center gap-1 font-semibold">
-                                            <User size={12}/> {caja.clientes?.nombre_completo || 'Sin nombre'} {caja.clientes?.dni ? `(DNI: ${caja.clientes.dni})` : ''} {caja.clientes?.celular ? `(Cel: ${caja.clientes.celular})` : ''}
-                                          </span>
-                                        )}
-
-                                        <span className="text-sm font-bold text-gray-800 mt-1">
-                                          {caja.tipo_entrega === 'agencia' 
-                                            ? [caja.agencia_distrito, caja.agencia_provincia, caja.agencia_departamento].filter(Boolean).join(', ') || 'Ubigeo no configurado'
-                                            : [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ') || 'Ubigeo no configurado'
-                                          }
-                                        </span>
-                                        
-                                        {caja.tipo_entrega === 'agencia' && caja.agencia_direccion && (
-                                          <span className="text-xs text-gray-500 mt-1 italic">📌 Ref: {caja.agencia_direccion}</span>
-                                        )}
-                                        {caja.tipo_entrega === 'domicilio' && caja.clientes?.direccion && (
-                                          <span className="text-xs text-gray-500 mt-1 italic">📌 Dir: {caja.clientes?.direccion}</span>
-                                        )}
+                                        <button onClick={() => iniciarEdicionEnvio(caja)} disabled={estaBloqueado} className={`p-1.5 rounded-md transition-colors ${estaBloqueado ? 'text-gray-300' : 'text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-blue-50'}`}><Edit size={14}/></button>
                                       </div>
-                                      <button onClick={() => iniciarEdicionEnvio(caja)} disabled={estaBloqueado} className={`p-3 bg-white rounded-xl shadow-sm border border-gray-200 transition-colors ${estaBloqueado ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`} title="Editar datos y ubicación"><Edit size={18}/></button>
+                                      
+                                      <div className="space-y-1">
+                                        <p className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                                          <User size={14} className="text-gray-400"/> 
+                                          {caja.clientes?.nombre_completo || 'Sin nombre'} {caja.clientes?.dni ? `• DNI: ${caja.clientes.dni}` : ''}
+                                        </p>
+                                        <p className="text-[11px] md:text-xs text-gray-600 flex items-start gap-1.5 leading-snug">
+                                          <MapPin size={12} className="text-gray-400 mt-0.5 shrink-0"/> 
+                                          <span>
+                                            <strong className="block">{caja.tipo_entrega === 'agencia' ? [caja.agencia_distrito, caja.agencia_provincia, caja.agencia_departamento].filter(Boolean).join(', ') : [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ')}</strong>
+                                            {caja.tipo_entrega === 'agencia' && caja.agencia_direccion ? `Ref: ${caja.agencia_direccion}` : ''}
+                                            {caja.tipo_entrega === 'domicilio' && caja.clientes?.direccion ? `Dir: ${caja.clientes?.direccion}` : ''}
+                                          </span>
+                                        </p>
+                                      </div>
                                     </div>
                                   )}
                                 </div>
 
-                                <div>
-                                  <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Truck size={18} className="text-purple-600"/> Estado del Paquete</h4>
-                                  <div className="flex flex-col gap-2">
-                                    {estaAbierta && <p className="text-xs text-orange-600 font-semibold mb-1">⚠️ Cierra la caja en el Panel en Vivo para despachar.</p>}
-                                    <div className="flex flex-wrap gap-3">
-                                      <button onClick={() => cambiarEstadoEnvio(caja, 'proceso', estadoEnvio)} disabled={estaBloqueado} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${estadoEnvio === 'proceso' ? 'bg-gray-800 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} ${estaBloqueado && 'opacity-50 cursor-not-allowed'}`}><Timer size={18} /> En Proceso</button>
-                                      <button onClick={() => cambiarEstadoEnvio(caja, 'listo', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${estadoEnvio === 'listo' ? 'bg-blue-600 text-white shadow-md' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><PackageCheck size={18} /> Listo para enviar</button>
-                                      <button onClick={() => cambiarEstadoEnvio(caja, 'enviado', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${estadoEnvio === 'enviado' ? 'bg-purple-600 text-white shadow-md' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><Truck size={18} /> {estaBloqueado ? 'Enviado (Bloqueado)' : 'Marcar como Enviado'}</button>
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                  <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm md:text-base"><Truck size={16} className="text-purple-600"/> Seguimiento Logístico</h4>
+                                  <div className="flex flex-col gap-3 h-full">
+                                    {estaAbierta && <p className="text-[10px] md:text-xs text-orange-600 font-semibold">⚠️ Cierra la caja en el Panel en Vivo para despachar.</p>}
+                                    
+                                    <div className="grid grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2">
+                                      <button onClick={() => cambiarEstadoEnvio(caja, 'proceso', estadoEnvio)} disabled={estaBloqueado} className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg font-bold text-[11px] md:text-xs transition-all border ${estadoEnvio === 'proceso' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'} ${estaBloqueado && 'opacity-50 cursor-not-allowed'}`}><Timer size={14} /> Proceso</button>
+                                      <button onClick={() => cambiarEstadoEnvio(caja, 'listo', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg font-bold text-[11px] md:text-xs transition-all border ${estadoEnvio === 'listo' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><PackageCheck size={14} /> Listo</button>
+                                      <button onClick={() => cambiarEstadoEnvio(caja, 'enviado', estadoEnvio)} disabled={estaBloqueado || estaAbierta} className={`flex items-center justify-center col-span-2 lg:col-span-1 xl:col-span-2 gap-1.5 px-2 py-2.5 rounded-lg font-bold text-[11px] md:text-xs transition-all border ${estadoEnvio === 'enviado' ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'} ${(estaBloqueado || estaAbierta) && 'opacity-50 cursor-not-allowed'}`}><Truck size={14} /> {estaBloqueado ? 'Pedido Enviado (Bloqueado)' : 'Marcar como Enviado'}</button>
                                     </div>
+                                    
+                                    <div className="md:hidden flex gap-2 mt-auto pt-3 border-t border-gray-100">
+                                      {!estaAbierta && !estaBloqueado && (
+                                        <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} className="flex-1 p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border border-blue-100"><Unlock size={14}/> Reabrir Panel</button>
+                                      )}
+                                      {!estaBloqueado && (
+                                        <button onClick={(e) => eliminarCaja(e, caja.id)} className="flex-1 p-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border border-red-100"><Trash2 size={14}/> Eliminar</button>
+                                      )}
+                                    </div>
+
                                   </div>
                                 </div>
                               </div>
