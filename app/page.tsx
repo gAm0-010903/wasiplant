@@ -369,7 +369,7 @@ export default function Home() {
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
                       </span>
-                      Carritos abiertos ({cajasPendientes.length})
+                      Carritos en espera ({cajasPendientes.length})
                     </h4>
                     <div className="space-y-2.5 max-h-64 overflow-y-auto pr-2">
                       {cajasPendientes.map((c: any) => (
