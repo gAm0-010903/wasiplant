@@ -2,17 +2,17 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Search, Plus, X, Image as ImageIcon, Trash2, Edit2, Check, Clock, User } from 'lucide-react';
+import { Search, Plus, X, Image as ImageIcon, Trash2, Edit2, Check, Clock, User, MessageCircle, Phone } from 'lucide-react';
 
 export default function Home() {
   const [plantas, setPlantas] = useState<any[]>([]);
   
-  // NUEVOS ESTADOS PARA EL BUSCADOR INTELIGENTE
   const [busquedaCliente, setBusquedaCliente] = useState('');
   const [sugerenciasClientes, setSugerenciasClientes] = useState<any[]>([]);
   const [mostrarSugerenciasCliente, setMostrarSugerenciasCliente] = useState(false);
   
   const [clienteActual, setClienteActual] = useState<any>(null);
+  const [celular, setCelular] = useState('');
   const [cajaActual, setCajaActual] = useState<any>(null);
   const [detallesCaja, setDetallesCaja] = useState<any[]>([]);
   const [abonosCaja, setAbonosCaja] = useState<any[]>([]);
@@ -21,18 +21,20 @@ export default function Home() {
   const [montoAbono, setMontoAbono] = useState('');
   const [cargando, setCargando] = useState(false);
 
-  // Estados del modal y edición
   const [modalAbierto, setModalAbierto] = useState(false);
   const [busquedaPlanta, setBusquedaPlanta] = useState('');
   const [precioUnidad, setPrecioUnidad] = useState('');
-  const [cantidad, setCantidad] = useState<number>(1);
+  
+  const [cantidad, setCantidad] = useState<number | string>(1); 
+  
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [archivoFoto, setArchivoFoto] = useState<File | null>(null);
   const [previewFoto, setPreviewFoto] = useState<string | null>(null);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
   const [itemEditando, setItemEditando] = useState<any>(null);
   const [precioEdit, setPrecioEdit] = useState('');
-  const [cantidadEdit, setCantidadEdit] = useState<number>(1);
+  
+  const [cantidadEdit, setCantidadEdit] = useState<number | string>(1);
 
   useEffect(() => {
     cargarPlantas();
@@ -45,7 +47,6 @@ export default function Home() {
   };
 
   const cargarPendientes = async () => {
-    // Ahora pedimos todos los datos del cliente para que funcione el buscador al retomarlo
     const { data } = await supabase
       .from('cajas')
       .select('id, clientes(*)')
@@ -54,15 +55,12 @@ export default function Home() {
     if (data) setCajasPendientes(data);
   };
 
-  // NUEVO: Motor de Búsqueda Inteligente (Usuario, Nombre, DNI)
   const buscarClientesEnTiempoReal = async (termino: string) => {
     setBusquedaCliente(termino);
     if (!termino.trim()) {
       setSugerenciasClientes([]);
       return;
     }
-    
-    // ilike = insensible a mayúsculas/minúsculas. Buscamos coincidencias en 3 columnas a la vez.
     const { data } = await supabase
       .from('clientes')
       .select('*')
@@ -73,7 +71,6 @@ export default function Home() {
     setMostrarSugerenciasCliente(true);
   };
 
-  // MEJORADO: Abre la caja seleccionando desde la sugerencia o creando uno nuevo
   const seleccionarCliente = async (clienteExistente: any = null, textoNuevo: string = '') => {
     setMostrarSugerenciasCliente(false);
     setCargando(true);
@@ -81,7 +78,6 @@ export default function Home() {
     try {
       let cliente = clienteExistente;
 
-      // Si le dio a "Enter" o al botón sin seleccionar de la lista, buscamos coincidencias o lo creamos
       if (!cliente) {
         const textoLimpio = textoNuevo.trim();
         if (!textoLimpio) {
@@ -89,24 +85,20 @@ export default function Home() {
           return alert("Ingresa un usuario para buscar o crear.");
         }
         
-        let { data: encontrados } = await supabase
-          .from('clientes')
-          .select('*')
-          .ilike('usuario_tiktok', textoLimpio);
+        let { data: encontrados } = await supabase.from('clientes').select('*').ilike('usuario_tiktok', textoLimpio);
           
         if (encontrados && encontrados.length > 0) {
           cliente = encontrados[0];
         } else {
-          // Si no existe, lo creamos asumiendo que el texto ingresado es su @usuario_tiktok
           const { data: nuevoCliente } = await supabase.from('clientes').insert([{ usuario_tiktok: textoLimpio }]).select().single();
           cliente = nuevoCliente;
         }
       }
 
       setClienteActual(cliente);
-      setBusquedaCliente(cliente.usuario_tiktok); // Seteamos el input con el @usuario exacto
+      setBusquedaCliente(cliente.usuario_tiktok); 
+      setCelular(cliente.celular || ''); 
 
-      // Busca caja abierta
       let { data: cajasAbiertas } = await supabase.from('cajas').select('*').eq('cliente_id', cliente.id).eq('estado', 'abierta').order('created_at', { ascending: false });
 
       let caja = null;
@@ -123,7 +115,6 @@ export default function Home() {
       
       setCajaActual(caja);
 
-      // Traer productos y abonos
       const { data: detalles } = await supabase.from('detalle_caja').select('*, plantas(*)').eq('caja_id', caja.id);
       if (detalles) setDetallesCaja(detalles);
 
@@ -157,6 +148,8 @@ export default function Home() {
       let plantaId: string | null = null;
       let imagenUrlFinal: string | null = null;
       let precioNumerico = parseFloat(precioUnidad);
+      
+      let cantidadFinal = Number(cantidad) || 1; 
 
       if (archivoFoto) {
         const fileExt = archivoFoto.name.split('.').pop();
@@ -185,7 +178,7 @@ export default function Home() {
         }
       }
 
-      const { data: detalle } = await supabase.from('detalle_caja').insert([{ caja_id: cajaActual.id, planta_id: plantaId, cantidad: cantidad, precio_vendido: precioNumerico }]).select('*, plantas(*)').single();
+      const { data: detalle } = await supabase.from('detalle_caja').insert([{ caja_id: cajaActual.id, planta_id: plantaId, cantidad: cantidadFinal, precio_vendido: precioNumerico }]).select('*, plantas(*)').single();
       if (detalle) {
         setDetallesCaja([...detallesCaja, detalle]);
         setBusquedaPlanta(''); setPrecioUnidad(''); setCantidad(1); setArchivoFoto(null); setPreviewFoto(null); setModalAbierto(false);
@@ -209,9 +202,11 @@ export default function Home() {
 
   const guardarEdicion = async () => {
     setCargando(true);
-    const { error } = await supabase.from('detalle_caja').update({ precio_vendido: parseFloat(precioEdit), cantidad: cantidadEdit }).eq('id', itemEditando.id);
+    let cantidadFinalEdit = Number(cantidadEdit) || 1;
+
+    const { error } = await supabase.from('detalle_caja').update({ precio_vendido: parseFloat(precioEdit), cantidad: cantidadFinalEdit }).eq('id', itemEditando.id);
     if (!error) {
-      setDetallesCaja(detallesCaja.map(item => item.id === itemEditando.id ? { ...item, precio_vendido: parseFloat(precioEdit), cantidad: cantidadEdit } : item));
+      setDetallesCaja(detallesCaja.map(item => item.id === itemEditando.id ? { ...item, precio_vendido: parseFloat(precioEdit), cantidad: cantidadFinalEdit } : item));
       setItemEditando(null);
     }
     setCargando(false);
@@ -225,13 +220,27 @@ export default function Home() {
     if (data) { setAbonosCaja([...abonosCaja, data]); setMontoAbono(''); }
   };
 
+  const enviarPorWhatsApp = () => {
+    if (!celular) return alert("Por favor, ingresa el celular del cliente primero.");
+    const numeroLimpio = celular.replace(/\D/g, '');
+    const numeroFinal = numeroLimpio.startsWith('51') ? numeroLimpio : `51${numeroLimpio}`;
+    
+    const nombre = clienteActual?.nombre_completo || `@${clienteActual?.usuario_tiktok}`;
+    const mensaje = `¡Hola ${nombre}! 🌿 Gracias por tu compra en WasiPlant.\n\n` + 
+                    `Tu total a pagar es: S/ ${totalCaja.toFixed(2)}\n` +
+                    (saldoPendiente > 0 ? `Saldo pendiente: S/ ${saldoPendiente.toFixed(2)}\n\n` : `¡Pedido cancelado en su totalidad! 💚\n\n`) +
+                    `Por favor envíanos la captura de tu transferencia. ¡Gracias!`;
+
+    window.open(`https://wa.me/${numeroFinal}?text=${encodeURIComponent(mensaje)}`, '_blank');
+  };
+
   const cerrarCaja = async () => {
     if (!cajaActual) return;
     if (!window.confirm(`¿Cerrar la caja de @${clienteActual.usuario_tiktok}?`)) return;
     setCargando(true);
     await supabase.from('cajas').update({ estado: 'cerrada' }).eq('id', cajaActual.id);
     setClienteActual(null); setCajaActual(null); setDetallesCaja([]); setAbonosCaja([]); 
-    setBusquedaCliente(''); // Limpiamos la barra de búsqueda
+    setBusquedaCliente(''); setCelular('');
     cargarPendientes(); 
     setCargando(false);
   };
@@ -251,7 +260,6 @@ export default function Home() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 space-y-6">
           
-          {/* 1. BUSCADOR INTELIGENTE */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative z-30">
             <h2 className="text-xl font-semibold mb-4 text-gray-700 flex items-center gap-2">
               <User size={24} className="text-green-600"/> 1. Identificar Cliente
@@ -266,24 +274,23 @@ export default function Home() {
                   value={busquedaCliente} 
                   onChange={(e) => buscarClientesEnTiempoReal(e.target.value)} 
                   onFocus={() => setMostrarSugerenciasCliente(true)}
-                  onBlur={() => setTimeout(() => setMostrarSugerenciasCliente(false), 200)} // Retardo para permitir el clic en la lista
+                  onBlur={() => setTimeout(() => setMostrarSugerenciasCliente(false), 200)} 
                   onKeyDown={(e) => e.key === 'Enter' && seleccionarCliente(null, busquedaCliente)}
                 />
                 
-                {/* LISTA DESPLEGABLE DE SUGERENCIAS */}
                 {mostrarSugerenciasCliente && busquedaCliente.trim() !== '' && (
                   <ul className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 shadow-xl rounded-xl max-h-60 overflow-y-auto z-40">
                     {sugerenciasClientes.length > 0 ? (
                       sugerenciasClientes.map(c => (
                         <li 
                           key={c.id} 
-                          onMouseDown={() => seleccionarCliente(c)} // onMouseDown se ejecuta antes que el onBlur del input
+                          onMouseDown={() => seleccionarCliente(c)} 
                           className="px-5 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-50 flex flex-col transition-colors"
                         >
                           <span className="font-bold text-gray-800">@{c.usuario_tiktok}</span>
-                          {(c.nombre_completo || c.dni) && (
+                          {(c.nombre_completo || c.dni || c.celular) && (
                             <span className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                              {c.nombre_completo} {c.dni ? `• DNI: ${c.dni}` : ''}
+                              {c.nombre_completo} {c.dni ? `• DNI: ${c.dni}` : ''} {c.celular ? `• Cel: ${c.celular}` : ''}
                             </span>
                           )}
                         </li>
@@ -308,7 +315,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 min-h-[300px] flex flex-col items-center justify-center border-dashed border-2 border-gray-200">
+          <div className="bg-white p-6 rounded-2xl shadow-sm min-h-[300px] flex flex-col items-center justify-center border-dashed border-2 border-gray-200">
             <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">2. Agregar Productos</h2>
             <p className="text-gray-400 mb-6 text-center text-sm max-w-md">Abre la caja de un cliente primero. Luego añade plantas con fotos y precios.</p>
             <button onClick={() => setModalAbierto(true)} disabled={!cajaActual} className="flex items-center gap-2 bg-green-100 text-green-700 hover:bg-green-200 hover:scale-105 font-bold py-4 px-8 rounded-2xl transition-all disabled:opacity-50">
@@ -317,7 +324,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 h-fit sticky top-8 z-20">
           
           {!clienteActual ? (
@@ -357,6 +363,22 @@ export default function Home() {
               <h2 className="text-xl font-semibold mb-4 border-b pb-4 flex justify-between items-center">
                 Caja Actual <span className="bg-green-100 text-green-700 text-sm py-1 px-3 rounded-full font-bold">@{clienteActual.usuario_tiktok}</span>
               </h2>
+
+              <div className="mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100 shadow-sm">
+                <label className="text-xs font-bold text-gray-500 mb-1 flex items-center gap-1"><Phone size={14}/> WhatsApp del Cliente</label>
+                <input
+                  type="text"
+                  placeholder="Ej. 999888777"
+                  className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:border-green-500 text-sm"
+                  value={celular}
+                  onChange={(e) => setCelular(e.target.value)}
+                  onBlur={async () => {
+                    if (clienteActual && celular !== clienteActual.celular) {
+                      await supabase.from('clientes').update({ celular }).eq('id', clienteActual.id);
+                    }
+                  }}
+                />
+              </div>
               
               <div className="min-h-[200px] mb-4 bg-gray-50 rounded-xl p-3 border border-gray-100 max-h-[400px] overflow-y-auto">
                 {detallesCaja.length === 0 ? (
@@ -367,9 +389,20 @@ export default function Home() {
                       <li key={item.id} className="flex flex-col text-sm bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
                         {itemEditando?.id === item.id ? (
                           <div className="flex gap-2 items-center bg-gray-50 p-2 rounded-lg">
-                            <input type="number" className="w-16 p-1 border rounded" value={cantidadEdit} onChange={e => setCantidadEdit(parseInt(e.target.value) || 1)} />
+                            <input 
+                              type="number" 
+                              className="w-16 p-1 border rounded text-center" 
+                              value={cantidadEdit} 
+                              onChange={e => setCantidadEdit(e.target.value === '' ? '' : parseInt(e.target.value))}
+                              onBlur={() => { if(cantidadEdit === '' || Number(cantidadEdit) < 1) setCantidadEdit(1); }} 
+                            />
                             <span className="text-xs text-gray-500">x</span>
-                            <input type="number" className="w-20 p-1 border rounded" value={precioEdit} onChange={e => setPrecioEdit(e.target.value)} />
+                            <input 
+                              type="number" 
+                              className="w-20 p-1 border rounded" 
+                              value={precioEdit} 
+                              onChange={e => setPrecioEdit(e.target.value)} 
+                            />
                             <div className="flex-1 flex justify-end gap-2">
                               <button onClick={() => setItemEditando(null)} className="text-gray-400 hover:text-gray-600"><X size={18}/></button>
                               <button onClick={guardarEdicion} className="text-green-600 hover:text-green-800"><Check size={18}/></button>
@@ -427,13 +460,19 @@ export default function Home() {
                   <span>Saldo:</span><span>S/ {saldoPendiente.toFixed(2)}</span>
                 </div>
               </div>
-              <button onClick={cerrarCaja} disabled={cargando} className="w-full mt-6 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-xl">Cerrar Caja y Finalizar</button>
+              
+              <button onClick={enviarPorWhatsApp} disabled={cargando} className="w-full mt-6 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2">
+                <MessageCircle size={20} /> Enviar Resumen al WhatsApp
+              </button>
+              
+              <button onClick={cerrarCaja} disabled={cargando} className="w-full mt-2 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-xl">
+                Cerrar Caja y Finalizar
+              </button>
             </>
           )}
         </div>
       </div>
 
-      {/* MODAL PARA AÑADIR PRODUCTO */}
       {modalAbierto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
@@ -469,7 +508,14 @@ export default function Home() {
                 </div>
                 <div className="w-24">
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Cant.</label>
-                  <input type="number" min="1" className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-green-500 outline-none text-center" value={cantidad} onChange={(e) => setCantidad(parseInt(e.target.value) || 1)} />
+                  <input 
+                    type="number" 
+                    min="1" 
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-green-500 outline-none text-center" 
+                    value={cantidad} 
+                    onChange={(e) => setCantidad(e.target.value === '' ? '' : parseInt(e.target.value))} 
+                    onBlur={() => { if(cantidad === '' || Number(cantidad) < 1) setCantidad(1); }}
+                  />
                 </div>
               </div>
 
@@ -477,7 +523,14 @@ export default function Home() {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Foto (Opcional)</label>
                 <div onClick={() => inputArchivoRef.current?.click()} className="border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col items-center justify-center text-gray-400 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer overflow-hidden relative">
                   {previewFoto ? <img src={previewFoto} alt="Preview" className="h-32 object-contain rounded-lg" /> : <><ImageIcon size={28} className="mb-2" /><span className="text-xs text-center">Haz clic para subir o tomar foto</span></>}
-                  <input type="file" accept="image/*" ref={inputArchivoRef} onChange={manejarSubidaFoto} className="hidden" />
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment" 
+                    ref={inputArchivoRef}
+                    onChange={manejarSubidaFoto}
+                    className="hidden"
+                  />
                 </div>
               </div>
 

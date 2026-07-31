@@ -2,13 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Search, Calendar, Package, DollarSign, CheckCircle2, Clock, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Copy, Building2, Home, User } from 'lucide-react';
+import { Search, Calendar, Package, DollarSign, CheckCircle2, Clock, Unlock, Trash2, Lock, ChevronDown, ChevronUp, Truck, PackageCheck, Timer, Image as ImageIcon, MapPin, Edit, Save, Copy, Building2, Home, User, Printer, MessageCircle, Phone } from 'lucide-react';
 
 export default function Historial() {
   const [cajas, setCajas] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
   
-  // FILTROS
   const [busqueda, setBusqueda] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
@@ -16,18 +15,16 @@ export default function Historial() {
   
   const [filaExpandida, setFilaExpandida] = useState<string | null>(null);
 
-  // Estados para Ubigeo
   const [ubigeoData, setUbigeoData] = useState<any[]>([]);
   const [listaDepartamentos, setListaDepartamentos] = useState<string[]>([]);
   
-  // Estados para Edición de Envío
   const [editandoEnvioId, setEditandoEnvioId] = useState<string | null>(null);
   const [listaProvincias, setListaProvincias] = useState<string[]>([]);
   const [listaDistritos, setListaDistritos] = useState<string[]>([]);
   const [agenciasSugeridas, setAgenciasSugeridas] = useState<string[]>([]);
 
   const [formEnvio, setFormEnvio] = useState({ 
-    nombre_completo: '', dni: '', direccion: '',
+    nombre_completo: '', dni: '', direccion: '', celular: '',
     tipo_entrega: 'agencia', 
     departamento: '', provincia: '', distrito: '', 
     courier: '', agencia_departamento: '', agencia_provincia: '', agencia_distrito: '', agencia_direccion: '' 
@@ -59,7 +56,7 @@ export default function Historial() {
         .select(`
           id, created_at, estado, estado_envio, tipo_entrega, courier, agencia_departamento, agencia_provincia, agencia_distrito, agencia_direccion,
           cliente_id, 
-          clientes (id, usuario_tiktok, nombre_completo, dni, departamento, provincia, distrito, direccion), 
+          clientes (id, usuario_tiktok, nombre_completo, dni, celular, departamento, provincia, distrito, direccion), 
           detalle_caja (cantidad, precio_vendido, plantas (nombre, imagen_url)), 
           abonos (monto)
         `)
@@ -74,15 +71,10 @@ export default function Historial() {
 
           let { tipo_entrega, courier, agencia_departamento, agencia_provincia, agencia_distrito, agencia_direccion } = caja;
 
-          // 🔥 MAGIA DE HERENCIA CORREGIDA 🔥
-          // Si NO tiene un departamento de agencia guardado y NO tiene un courier (es decir, está en blanco)
           if (!agencia_departamento && !courier) {
-            
-            // Busca hacia atrás el pedido anterior de este cliente que SÍ tenga datos
             const cajaAnterior = data.find(c => c.cliente_id === caja.cliente_id && c.id !== caja.id && (c.agencia_departamento || c.courier));
 
             if (cajaAnterior) {
-              // Copiamos absolutamente todo del pedido anterior
               tipo_entrega = cajaAnterior.tipo_entrega || 'agencia';
               courier = cajaAnterior.courier;
               agencia_departamento = cajaAnterior.agencia_departamento;
@@ -90,7 +82,6 @@ export default function Historial() {
               agencia_distrito = cajaAnterior.agencia_distrito;
               agencia_direccion = cajaAnterior.agencia_direccion;
             } else if (caja.clientes?.departamento) {
-              // Si no hay pedidos anteriores pero tiene datos en su perfil de cliente
               tipo_entrega = 'agencia';
               agencia_departamento = caja.clientes.departamento;
               agencia_provincia = caja.clientes.provincia;
@@ -98,7 +89,6 @@ export default function Historial() {
             }
           }
 
-          // Seguridad: Si aún así queda nulo, forzar a que sea Agencia por defecto
           if (!tipo_entrega) tipo_entrega = 'agencia';
 
           return { 
@@ -138,14 +128,13 @@ export default function Historial() {
     setEditandoEnvioId(caja.id);
     const cliente = caja.clientes || {};
     
-    // Al abrir el editor, carga los datos heredados automáticamente
     const tipo = caja.tipo_entrega;
     const dpto = caja.agencia_departamento;
     const prov = caja.agencia_provincia;
     const dist = caja.agencia_distrito;
 
     setFormEnvio({
-      nombre_completo: cliente.nombre_completo || '', dni: cliente.dni || '', direccion: cliente.direccion || '',
+      nombre_completo: cliente.nombre_completo || '', dni: cliente.dni || '', direccion: cliente.direccion || '', celular: cliente.celular || '',
       tipo_entrega: tipo || 'agencia',
       departamento: cliente.departamento || '', provincia: cliente.provincia || '', distrito: cliente.distrito || '',
       courier: caja.courier || '', agencia_departamento: dpto || '', agencia_provincia: prov || '', agencia_distrito: dist || '', agencia_direccion: caja.agencia_direccion || ''
@@ -191,7 +180,7 @@ export default function Historial() {
       agencia_direccion: formEnvio.tipo_entrega === 'agencia' ? formEnvio.agencia_direccion : null
     }).eq('id', caja.id);
 
-    let datosAActualizarCliente: any = { nombre_completo: formEnvio.nombre_completo, dni: formEnvio.dni };
+    let datosAActualizarCliente: any = { nombre_completo: formEnvio.nombre_completo, dni: formEnvio.dni, celular: formEnvio.celular };
     if (formEnvio.tipo_entrega === 'domicilio') datosAActualizarCliente.direccion = formEnvio.direccion;
     
     if (actualizoPerfil) {
@@ -249,6 +238,74 @@ export default function Historial() {
     }
   };
 
+  // NUEVO: Generar etiqueta de envío en formato PDF
+  const generarEtiquetaPDF = (e: React.MouseEvent, caja: any) => {
+    e.stopPropagation(); // Evita que se expanda la fila
+    const ventana = window.open('', '_blank');
+    if (!ventana) return;
+
+    const nombre = caja.clientes?.nombre_completo || `@${caja.clientes?.usuario_tiktok}`;
+    const dni = caja.clientes?.dni || 'No registrado';
+    const celular = caja.clientes?.celular || 'No registrado';
+    const modalidad = caja.tipo_entrega === 'agencia' ? `Agencia (${caja.courier || 'Pendiente'})` : 'Envío a Domicilio';
+    
+    let destino = '';
+    if (caja.tipo_entrega === 'agencia') {
+      destino = [caja.agencia_distrito, caja.agencia_provincia, caja.agencia_departamento].filter(Boolean).join(', ');
+      if (caja.agencia_direccion) destino += ` <br><span style="font-size: 14px; font-weight: normal; color: #444;">Ref: ${caja.agencia_direccion}</span>`;
+    } else {
+      destino = [caja.clientes?.distrito, caja.clientes?.provincia, caja.clientes?.departamento].filter(Boolean).join(', ');
+      if (caja.clientes?.direccion) destino += ` <br><span style="font-size: 14px; font-weight: normal; color: #444;">Dir: ${caja.clientes?.direccion}</span>`;
+    }
+
+    const html = `
+      <html>
+        <head>
+          <title>Etiqueta - ${nombre}</title>
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; max-width: 380px; margin: 0 auto; border: 2px dashed #333; border-radius: 10px; }
+            h2 { text-align: center; margin-bottom: 25px; font-size: 26px; text-transform: uppercase; color: #166534; border-bottom: 2px solid #166534; padding-bottom: 10px; }
+            .dato { margin-bottom: 15px; font-size: 18px; line-height: 1.4; }
+            .etiqueta { font-weight: bold; color: #666; font-size: 13px; display: block; margin-bottom: 3px; text-transform: uppercase;}
+            .valor { font-weight: 900; font-size: 20px; color: #111; }
+            .footer { text-align: center; margin-top: 40px; font-size: 14px; color: #777; font-style: italic; border-top: 1px solid #ccc; padding-top: 15px;}
+          </style>
+        </head>
+        <body>
+          <h2>📦 WasiPlant Envío</h2>
+          <div class="dato">
+            <span class="etiqueta">DESTINATARIO:</span>
+            <span class="valor">${nombre}</span>
+          </div>
+          <div class="dato">
+            <span class="etiqueta">DNI / CELULAR:</span>
+            <span class="valor">${dni} - ${celular}</span>
+          </div>
+          <div class="dato">
+            <span class="etiqueta">DESTINO (${modalidad}):</span>
+            <span class="valor">${destino || 'No registrado'}</span>
+          </div>
+          <div class="footer">¡Gracias por comprar en nuestro TikTok Live! 🌿</div>
+          <script>
+            window.print();
+            window.onafterprint = () => window.close();
+          </script>
+        </body>
+      </html>
+    `;
+    ventana.document.write(html);
+    ventana.document.close();
+  };
+
+  // NUEVO: Abrir WhatsApp del cliente directamente
+  const abrirWhatsApp = (e: React.MouseEvent, celular: string) => {
+    e.stopPropagation(); // Evita que se expanda la fila
+    if (!celular) return alert("Este cliente no tiene un número de celular registrado.");
+    const num = celular.replace(/\D/g, '');
+    const numFinal = num.startsWith('51') ? num : `51${num}`;
+    window.open(`https://wa.me/${numFinal}`, '_blank');
+  };
+
   const reabrirCaja = async (e: React.MouseEvent, idCaja: string, idCliente: string, usuario: string) => {
     e.stopPropagation(); 
     if (!window.confirm(`¿Devolver el pedido de @${usuario} al Panel en Vivo?`)) return;
@@ -268,14 +325,12 @@ export default function Historial() {
     cargarHistorial(); 
   };
 
-  // Guardar permanente los datos heredados si presionamos los botones de logística
   const cambiarEstadoEnvio = async (caja: any, nuevoEstado: string, estadoActual: string) => {
     if (estadoActual === 'enviado') return alert("Este pedido ya fue enviado y está bloqueado.");
     if (nuevoEstado === 'enviado') {
         if (!window.confirm("📦 ALERTA: Al marcar como 'Pedido Enviado', este registro se BLOQUEARÁ. ¿Deseas continuar?")) return;
     }
     setCargando(true);
-    // Grabamos los datos de agencia en la base de datos para que la herencia sea permanente
     await supabase.from('cajas').update({ 
       estado_envio: nuevoEstado,
       tipo_entrega: caja.tipo_entrega,
@@ -301,6 +356,7 @@ export default function Historial() {
       (cliente.usuario_tiktok || '').toLowerCase().includes(termino) ||
       (cliente.nombre_completo || '').toLowerCase().includes(termino) ||
       (cliente.dni || '').toLowerCase().includes(termino) ||
+      (cliente.celular || '').toLowerCase().includes(termino) ||
       (caja.agencia_distrito || '').toLowerCase().includes(termino) ||
       (caja.agencia_departamento || '').toLowerCase().includes(termino) ||
       (cliente.distrito || '').toLowerCase().includes(termino) ||
@@ -333,7 +389,7 @@ export default function Historial() {
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
         <div className="relative w-full md:col-span-5">
           <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
-          <input type="text" placeholder="Buscar por @usuario, nombre, DNI o distrito..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 outline-none transition-all text-sm" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+          <input type="text" placeholder="Buscar por @usuario, nombre, DNI, celular o distrito..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 outline-none transition-all text-sm" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
         </div>
         
         <div className="md:col-span-7 flex flex-wrap xl:flex-nowrap items-center gap-3">
@@ -369,7 +425,7 @@ export default function Historial() {
                 <th className="p-4 font-semibold text-center">Monto Total</th>
                 <th className="p-4 font-semibold text-center">Cobro</th>
                 <th className="p-4 font-semibold text-center">Logística</th>
-                <th className="p-4 font-semibold text-center">Acciones</th>
+                <th className="p-4 font-semibold text-center">Acciones Rápidas</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -428,10 +484,15 @@ export default function Historial() {
                           {estadoEnvio === 'listo' && <span className="text-xs font-bold text-blue-700 bg-blue-100 px-3 py-1.5 rounded-full whitespace-nowrap"><PackageCheck size={14} className="inline mb-0.5 mr-1"/> Listo</span>}
                           {estadoEnvio === 'enviado' && <span className="text-xs font-bold text-purple-700 bg-purple-100 px-3 py-1.5 rounded-full whitespace-nowrap"><Truck size={14} className="inline mb-0.5 mr-1"/> Enviado</span>}
                         </td>
+                        
+                        {/* NUEVOS BOTONES DE ACCIONES RÁPIDAS EN LA FILA */}
                         <td className="p-4">
                           <div className="flex justify-center gap-2">
+                            <button onClick={(e) => abrirWhatsApp(e, caja.clientes?.celular)} title="Contactar por WhatsApp" className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"><MessageCircle size={18} /></button>
+                            <button onClick={(e) => generarEtiquetaPDF(e, caja)} title="Generar Etiqueta PDF" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"><Printer size={18} /></button>
+                            
                             {estaBloqueado ? (
-                              <span className="p-2 text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed"><Lock size={18} /></span>
+                              <span className="p-2 text-gray-400 bg-gray-100 rounded-lg cursor-not-allowed" title="Pedido bloqueado"><Lock size={18} /></span>
                             ) : (
                               <>
                                 {!estaAbierta && <button onClick={(e) => reabrirCaja(e, caja.id, caja.cliente_id, caja.clientes?.usuario_tiktok)} title="Editar en Panel" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Unlock size={18} /></button>}
@@ -500,6 +561,10 @@ export default function Historial() {
                                           <div>
                                             <label className="block text-xs font-bold text-gray-600 mb-1">DNI <span className="text-gray-400 font-normal">(Opcional)</span></label>
                                             <input type="text" maxLength={8} className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.dni} onChange={(e) => setFormEnvio({...formEnvio, dni: e.target.value.replace(/\D/g, '')})} placeholder="8 dígitos" />
+                                          </div>
+                                          <div className="md:col-span-2">
+                                            <label className="block text-xs font-bold text-gray-600 mb-1">Celular / WhatsApp <span className="text-gray-400 font-normal">(Opcional)</span></label>
+                                            <input type="text" className="w-full p-2.5 text-sm rounded-lg border border-gray-200 outline-none focus:border-green-500 font-mono" value={formEnvio.celular} onChange={(e) => setFormEnvio({...formEnvio, celular: e.target.value})} placeholder="Ej. 999888777" />
                                           </div>
                                         </div>
                                       </div>
@@ -590,9 +655,9 @@ export default function Historial() {
                                           {caja.tipo_entrega === 'agencia' ? `🏢 AGENCIA: ${caja.courier || 'Pendiente'}` : '🏡 A DOMICILIO'}
                                         </span>
                                         
-                                        {(caja.clientes?.nombre_completo || caja.clientes?.dni) && (
+                                        {(caja.clientes?.nombre_completo || caja.clientes?.dni || caja.clientes?.celular) && (
                                           <span className="text-xs text-gray-600 mb-1 flex items-center gap-1 font-semibold">
-                                            <User size={12}/> {caja.clientes?.nombre_completo || 'Sin nombre'} {caja.clientes?.dni ? `(DNI: ${caja.clientes.dni})` : ''}
+                                            <User size={12}/> {caja.clientes?.nombre_completo || 'Sin nombre'} {caja.clientes?.dni ? `(DNI: ${caja.clientes.dni})` : ''} {caja.clientes?.celular ? `(Cel: ${caja.clientes.celular})` : ''}
                                           </span>
                                         )}
 
