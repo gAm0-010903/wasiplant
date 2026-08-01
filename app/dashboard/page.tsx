@@ -114,7 +114,7 @@ export default function Dashboard() {
           pedidosEnviados: pEnviados
         });
 
-        // ✅ MEJORA 1: Ordenar plantas primero por cantidad, luego por ingresos si empatan
+        // Ordenar plantas primero por cantidad, luego por ingresos si empatan
         const arrayPlantas = Object.values(conteoPlantas)
           .sort((a, b) => {
             if (b.cantidad !== a.cantidad) return b.cantidad - a.cantidad;
@@ -122,7 +122,7 @@ export default function Dashboard() {
           })
           .slice(0, 5);
 
-        // Dejamos el array crudo, el ordenamiento se hará dinámicamente en el render (Mejora 3)
+        // Dejamos el array crudo, el ordenamiento se hará dinámicamente en el render
         const arrayClientes = Object.values(conteoClientes);
 
         setTopPlantas(arrayPlantas);
@@ -135,7 +135,7 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ MEJORA 3: Lógica para ordenar los clientes dinámicamente según el botón seleccionado
+  // Lógica para ordenar los clientes dinámicamente según el botón seleccionado
   const clientesOrdenados = [...topClientes].sort((a, b) => {
     if (ordenarClientesPor === 'pedidos') {
       if (b.comprado !== a.comprado) return b.comprado - a.comprado;
@@ -277,7 +277,7 @@ export default function Dashboard() {
           {clientesOrdenados.length > 0 ? (
             <div className="space-y-6 flex-1">
               
-              {/* ✅ MEJORA 2: PODIO TOP 3 REDISEÑADO CON FOCO EN PEDIDOS */}
+              {/* PODIO TOP 3 CON ENFOQUE DINÁMICO */}
               <div className="grid grid-cols-3 gap-3">
                 {clientesOrdenados.slice(0, 3).map((cliente, index) => {
                   const estilosPodio = [
@@ -297,19 +297,30 @@ export default function Dashboard() {
                       </div>
                       <p className="font-bold text-xs truncate w-full mb-1" title={`@${cliente.usuario}`}>@{cliente.usuario}</p>
                       
-                      {/* Enfoque visual ajustado */}
-                      <p className="font-black text-2xl leading-none tracking-tight">{cliente.comprado}</p>
-                      <span className="text-[9px] font-bold uppercase tracking-widest opacity-80 mb-2">Pedidos</span>
-                      
-                      <span className="text-[10px] font-bold opacity-90 bg-white/60 px-2 py-1 rounded-md border border-white/40">
-                        S/ {cliente.gastado.toFixed(2)}
-                      </span>
+                      {/* LÓGICA CONDICIONAL DE ENFOQUE VISUAL */}
+                      {ordenarClientesPor === 'pedidos' ? (
+                        <>
+                          <p className="font-black text-2xl leading-none tracking-tight">{cliente.comprado}</p>
+                          <span className="text-[9px] font-bold uppercase tracking-widest opacity-80 mb-2">Pedidos</span>
+                          <span className="text-[10px] font-bold opacity-90 bg-white/60 px-2 py-1 rounded-md border border-white/40">
+                            S/ {cliente.gastado.toFixed(2)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-black text-lg leading-none tracking-tight">S/ {cliente.gastado.toFixed(2)}</p>
+                          <span className="text-[9px] font-bold uppercase tracking-widest opacity-80 mb-2 mt-1">Monto</span>
+                          <span className="text-[10px] font-bold opacity-90 bg-white/60 px-2 py-1 rounded-md border border-white/40">
+                            {cliente.comprado} {cliente.comprado === 1 ? 'Pedido' : 'Pedidos'}
+                          </span>
+                        </>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* LISTA DEL RESTO DE CLIENTES (A partir del 4to) */}
+              {/* LISTA DEL RESTO DE CLIENTES (A partir del 4to) CON ENFOQUE DINÁMICO */}
               {clientesOrdenados.length > 3 && (
                 <div className="space-y-2 pt-4 border-t border-gray-100">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Ranking Global</p>
@@ -322,12 +333,23 @@ export default function Dashboard() {
                         <span className="font-bold text-gray-700 truncate w-32 md:w-auto">@{cliente.usuario}</span>
                       </div>
                       
-                      {/* Enfoque visual ajustado en la lista */}
+                      {/* LÓGICA CONDICIONAL DE ENFOQUE VISUAL EN LA LISTA */}
                       <div className="text-right flex flex-col items-end">
-                        <span className="font-black text-gray-800 text-sm">{cliente.comprado} pedidos</span>
-                        <span className="text-xs text-gray-500 font-semibold bg-white px-1.5 py-0.5 rounded border border-gray-100 mt-0.5">
-                          S/ {cliente.gastado.toFixed(2)}
-                        </span>
+                        {ordenarClientesPor === 'pedidos' ? (
+                          <>
+                            <span className="font-black text-gray-800 text-sm">{cliente.comprado} {cliente.comprado === 1 ? 'pedido' : 'pedidos'}</span>
+                            <span className="text-xs text-gray-500 font-semibold bg-white px-1.5 py-0.5 rounded border border-gray-100 mt-0.5">
+                              S/ {cliente.gastado.toFixed(2)}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-black text-gray-800 text-sm">S/ {cliente.gastado.toFixed(2)}</span>
+                            <span className="text-xs text-gray-500 font-semibold bg-white px-1.5 py-0.5 rounded border border-gray-100 mt-0.5">
+                              {cliente.comprado} {cliente.comprado === 1 ? 'pedido' : 'pedidos'}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
