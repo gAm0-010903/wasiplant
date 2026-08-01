@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* 1. Forzamos a la aplicación a usar colores claros (evita el modo oscuro del celular) */
 :root {
@@ -23,19 +21,19 @@ body::before {
   left: 0;
   width: 100vw;
   height: 100vh;
-
+  
   /* Llama a tu logo que ya está en la carpeta public */
   background-image: url('/wasi-plant.png');
-
+  
   /* Hacemos que se repita como mosaico */
   background-repeat: repeat;
-
+  
   /* Tamaño de cada logo en el mosaico (ajústalo si lo quieres más grande o pequeño) */
   background-size: 80px; 
-
+  
   /* Nivel de transparencia (5%, muy elegante) */
   opacity: 0.05; 
-
+  
   z-index: -1; 
   pointer-events: none; 
 }
