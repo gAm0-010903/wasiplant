@@ -3,7 +3,12 @@ import Sidebar from './components/Sidebar';
 
 export const metadata = {
   title: 'WasiPlant',
-  description: 'Sistema de Gestión Inteligente para TikTok Lives',
+  description: 'Sistema de Gestión',
+  // Aquí forzamos al navegador a leer tu logo
+  icons: {
+    icon: '/wasi-plant.png',
+    apple: '/wasi-plant.png',
+  },
 };
 
 export default function RootLayout({
