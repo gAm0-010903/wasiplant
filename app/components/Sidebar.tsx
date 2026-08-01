@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Clock, Users, BarChart2, Leaf } from 'lucide-react';
+import { Home, Clock, Users, BarChart2 } from 'lucide-react'; // Se quitó Leaf ya que usaremos tu logo
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -18,9 +18,16 @@ export default function Sidebar() {
     <>
       {/* 💻 VISTA COMPUTADORA: Menú Lateral Izquierdo */}
       <aside className="hidden md:flex fixed top-0 left-0 h-screen w-20 bg-white border-r border-gray-100 flex-col items-center py-8 z-50">
-        <div className="bg-green-100 p-2 rounded-xl text-green-700 mb-8 shadow-sm">
-          <Leaf size={28} />
+        
+        {/* AQUÍ VA TU LOGO */}
+        <div className="mb-8 flex justify-center items-center p-1">
+          <img 
+            src="/wasi-plant.png" 
+            alt="WasiPlant Logo" 
+            className="w-12 h-12 object-contain drop-shadow-sm" 
+          />
         </div>
+
         <nav className="flex flex-col gap-6 w-full items-center">
           {menu.map((item) => {
             const activo = pathname === item.path;

@@ -13,7 +13,6 @@ export default function Historial() {
   const [fechaFin, setFechaFin] = useState('');
   const [mostrarAntiguos, setMostrarAntiguos] = useState(false); 
   
-  // ✅ NUEVO ESTADO: Controla qué tarjeta está abierta en el Modal de Detalles
   const [cajaSeleccionadaId, setCajaSeleccionadaId] = useState<string | null>(null);
 
   const [ubigeoData, setUbigeoData] = useState<any[]>([]);
@@ -123,7 +122,6 @@ export default function Historial() {
     }
   };
 
-  // ✅ FUNCIONES PARA ABRIR Y CERRAR EL MODAL
   const abrirDetalle = (caja: any) => {
     setCajaSeleccionadaId(caja.id);
     setEditandoEnvioId(null);
@@ -274,6 +272,9 @@ export default function Historial() {
     const fechaFormateada = new Date(caja.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const codigoPedido = caja.id.substring(0, 8).toUpperCase();
 
+    // RUTA SEGURA DEL LOGO PARA LA VENTANA DE IMPRESIÓN
+    const logoUrl = `${window.location.origin}/wasi-plant.png`;
+
     const html = `
       <!DOCTYPE html>
       <html lang="es"><head><meta charset="UTF-8"><title>Etiqueta - ${nombre}</title><style>
@@ -281,6 +282,7 @@ export default function Historial() {
             body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f9f9f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
             .etiqueta-a5 { width: 148mm; height: 210mm; background: #fff; border: 2px solid #000; box-sizing: border-box; padding: 12mm 10mm; display: flex; flex-direction: column; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
             .header { text-align: center; border-bottom: 4px solid #166534; padding-bottom: 12px; margin-bottom: 15px; }
+            .header img { height: 60px; width: auto; margin-bottom: 10px; object-fit: contain; filter: grayscale(100%); }
             .header h1 { margin: 0; font-size: 34px; text-transform: uppercase; color: #166534; letter-spacing: 2px; }
             .header p { margin: 5px 0 0 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold; }
             .seccion { margin-bottom: 22px; }
@@ -296,7 +298,11 @@ export default function Historial() {
             .footer { text-align: center; font-size: 13px; color: #666; border-top: 2px dashed #ccc; padding-top: 15px; }
           </style></head><body>
           <div class="etiqueta-a5">
-            <div class="header"><h1>WasiPlant</h1><p> Productos frágiles 🌿</p></div>
+            <div class="header">
+              <img src="${logoUrl}" alt="Logo WasiPlant" />
+              <h1>WasiPlant</h1>
+              <p> Productos frágiles 🌿</p>
+            </div>
             <div class="seccion destacado"><span class="label">Destinatario</span><div class="valor-grande">${nombre}</div><div class="valor-mediano">📱 Celular: ${celular} <br> 🪪 DNI: ${dni}</div></div>
             <div class="seccion"><span class="label">Datos de Envío</span><div class="valor-mediano"><strong>[ ${modalidad.toUpperCase()} ]</strong><br><br>${destino || 'Pendiente de confirmación'}</div></div>
             <div class="info-grid">
@@ -432,7 +438,6 @@ export default function Historial() {
         </div>
       </div>
 
-      {/* ✅ NUEVA VISTA PRINCIPAL: Cuadrícula de Tarjetas Resumidas */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 lg:gap-6">
         {cajasFiltradas.length > 0 ? (
           cajasFiltradas.map((caja: any) => {
@@ -492,13 +497,11 @@ export default function Historial() {
         </div>
       )}
 
-      {/* ✅ NUEVO: VENTANA EMERGENTE (MODAL) CON LOS DETALLES ORDENADOS */}
       {cajaActiva && (
         <div className="fixed inset-0 z-[50] bg-gray-900/60 backdrop-blur-sm flex justify-center items-end md:items-center md:p-4 animate-in fade-in duration-200">
           
           <div className="bg-white w-full h-[90vh] md:h-[85vh] md:max-w-4xl md:rounded-[2.5rem] rounded-t-[2.5rem] flex flex-col shadow-2xl animate-in slide-in-from-bottom-8 duration-300 overflow-hidden border border-gray-100">
             
-            {/* Cabecera del Modal Fija */}
             <div className="flex justify-between items-center p-5 md:p-6 lg:px-8 border-b border-gray-100 bg-white z-10 shadow-sm">
               <div className="flex flex-col">
                 <h3 className="text-lg md:text-xl font-black text-gray-800 flex items-center gap-2">
@@ -510,10 +513,8 @@ export default function Historial() {
               <button onClick={cerrarDetalle} className="p-2.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors"><X size={20}/></button>
             </div>
 
-            {/* Contenido del Modal (Desplazable) */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-gray-50/50 space-y-6">
               
-              {/* BLOQUE 1: PLANTAS Y FINANZAS */}
               <div className="flex flex-col xl:flex-row gap-5">
                 <div className="flex-1 bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
@@ -550,7 +551,6 @@ export default function Historial() {
                 </div>
               </div>
 
-              {/* BLOQUE 2: LOGÍSTICA Y ESTADOS */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 pb-10">
                 <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
                   <h4 className="font-black text-gray-800 mb-5 flex items-center gap-2 text-base"><MapPin size={18} className="text-red-500"/> Logística y Etiqueta</h4>
@@ -653,7 +653,6 @@ export default function Historial() {
         </div>
       )}
 
-      {/* ✅ MODAL DE DIÁLOGO PERSONALIZADO (Alertas / Confirmaciones - Nivel SUPERIOR) */}
       {dialogo.abierto && (
         <div className="fixed inset-0 bg-gray-900/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl p-6 md:p-8 text-center border border-gray-100 animate-in zoom-in-95 duration-200">
