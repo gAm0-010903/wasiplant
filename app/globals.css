@@ -7,7 +7,8 @@
 
 /* 2. Configuramos el cuerpo principal de la aplicación */
 body {
-  background-color: #ffffff !important; /* Fondo blanco puro garantizado */
+  /* Verde agua muy suave (tonalidad baja) en lugar de blanco puro */
+  background-color: #ecfdf5 !important; 
   color: #1f2937; /* Color de texto base */
   min-height: 100vh;
   position: relative;
@@ -31,7 +32,7 @@ body::before {
   /* Tamaño de cada logo en el mosaico (ajústalo si lo quieres más grande o pequeño) */
   background-size: 80px; 
   
-  /* Nivel de transparencia (5%, muy elegante) */
+  /* Nivel de transparencia (5%, muy elegante, se mezcla con el verde agua) */
   opacity: 0.05; 
   
   z-index: -1; 
