@@ -639,7 +639,7 @@ export default function Historial() {
                     
                     <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
                       {cajaActiva.estado !== 'abierta' && cajaActiva.estado_envio !== 'enviado' && (
-                        <button onClick={(e) => reabrirCaja(e, cajaActiva.id, cajaActiva.cliente_id, cajaActiva.clientes?.usuario_tiktok)} className="flex-1 py-3.5 bg-white text-blue-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-blue-200 hover:bg-blue-50 shadow-sm"><Unlock size={16}/> Editar Caja</button>
+                        <button onClick={(e) => reabrirCaja(e, cajaActiva.id, cajaActiva.cliente_id, cajaActiva.clientes?.usuario_tiktok)} className="flex-1 py-3.5 bg-white text-blue-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-blue-200 hover:bg-blue-50 shadow-sm"><Unlock size={16}/> Editar Carrito</button>
                       )}
                       {cajaActiva.estado_envio !== 'enviado' && (
                         <button onClick={(e) => eliminarCaja(e, cajaActiva.id)} className="flex-1 py-3.5 bg-white text-red-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-50 shadow-sm"><Trash2 size={16}/> Borrar Pedido</button>
