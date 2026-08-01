@@ -4,12 +4,26 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TrendingUp, DollarSign, Package, Users, Leaf, ArrowUpRight, AlertCircle, User, Calendar, Award } from 'lucide-react';
 
+// Función para obtener la fecha correcta en la zona horaria local (evita desfases de UTC)
+const obtenerFechaLocal = (fecha: Date) => {
+  const offset = fecha.getTimezoneOffset() * 60000;
+  return new Date(fecha.getTime() - offset).toISOString().split('T')[0];
+};
+
 export default function Dashboard() {
   const [cargando, setCargando] = useState(true);
   
-  // FILTROS DE FECHA PARA EL DASHBOARD
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
+  // ✅ FILTROS PREDETERMINADOS A 7 DÍAS
+  const [fechaInicio, setFechaInicio] = useState(() => {
+    const hace7Dias = new Date();
+    hace7Dias.setDate(hace7Dias.getDate() - 7);
+    return obtenerFechaLocal(hace7Dias);
+  });
+  
+  const [fechaFin, setFechaFin] = useState(() => {
+    const hoy = new Date();
+    return obtenerFechaLocal(hoy);
+  });
 
   const [metricas, setMetricas] = useState({
     ventasTotales: 0,
@@ -48,7 +62,9 @@ export default function Dashboard() {
         const conteoClientes: Record<string, { usuario: string, comprado: number, gastado: number }> = {};
 
         cajas.forEach((caja: any) => {
-          const fechaCajaStr = new Date(caja.created_at).toISOString().split('T')[0];
+          // Extraemos solo la fecha (YYYY-MM-DD) usando el ajuste local
+          const fechaCajaObj = new Date(caja.created_at);
+          const fechaCajaStr = obtenerFechaLocal(fechaCajaObj);
 
           // FILTRAR POR FECHAS SI ESTÁN ACTIVAS
           if (fechaInicio && fechaCajaStr < fechaInicio) return;
@@ -90,7 +106,8 @@ export default function Dashboard() {
           ingresosReales: iReales,
           porCobrar: pCobrar,
           totalPedidos: cajas.filter((c: any) => {
-            const f = new Date(c.created_at).toISOString().split('T')[0];
+            const fechaObj = new Date(c.created_at);
+            const f = obtenerFechaLocal(fechaObj);
             if (fechaInicio && f < fechaInicio) return false;
             if (fechaFin && f > fechaFin) return false;
             return true;
@@ -136,7 +153,12 @@ export default function Dashboard() {
             </div>
           </div>
           {(fechaInicio || fechaFin) && (
-            <button onClick={() => {setFechaInicio(''); setFechaFin('');}} className="text-xs font-bold text-red-500 hover:text-red-700 underline px-2">Limpiar</button>
+            <button 
+              onClick={() => {setFechaInicio(''); setFechaFin('');}} 
+              className="text-xs font-bold text-red-500 hover:text-red-700 underline px-2 transition-colors"
+            >
+              Ver todo el historial
+            </button>
           )}
         </div>
       </header>

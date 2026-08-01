@@ -628,10 +628,10 @@ export default function Historial() {
                 </div>
 
                 <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm flex flex-col h-full">
-                  <h4 className="font-black text-gray-800 mb-5 flex items-center gap-2 text-base"><Truck size={18} className="text-purple-600"/> Estado del Paquete</h4>
+                  <h4 className="font-black text-gray-800 mb-5 flex items-center gap-2 text-base"><Truck size={18} className="text-purple-600"/> Estado del Pedido</h4>
                   
                   <div className="flex-1 flex flex-col justify-center gap-3">
-                    {cajaActiva.estado === 'abierta' && <p className="text-xs text-orange-600 font-bold text-center bg-orange-50 p-3 rounded-xl border border-orange-100 mb-2">⚠️ Debes cerrar la caja en el Panel en Vivo para poder cambiar los estados logísticos.</p>}
+                    {cajaActiva.estado === 'abierta' && <p className="text-xs text-orange-600 font-bold text-center bg-orange-50 p-3 rounded-xl border border-orange-100 mb-2">⚠️ Debes Guardar el carrito en la Gestión de pedidos para poder cambiar los estados logísticos.</p>}
                     
                     <button onClick={() => cambiarEstadoEnvio(cajaActiva, 'proceso', cajaActiva.estado_envio)} disabled={cajaActiva.estado_envio === 'enviado'} className={`flex items-center justify-center gap-2 w-full py-4 rounded-xl font-black text-sm transition-all border ${cajaActiva.estado_envio === 'proceso' ? 'bg-gray-800 text-white border-gray-800 shadow-md' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'} ${cajaActiva.estado_envio === 'enviado' && 'opacity-50 cursor-not-allowed'}`}><Timer size={18} /> Paquete en Proceso</button>
                     <button onClick={() => cambiarEstadoEnvio(cajaActiva, 'listo', cajaActiva.estado_envio)} disabled={cajaActiva.estado_envio === 'enviado' || cajaActiva.estado === 'abierta'} className={`flex items-center justify-center gap-2 w-full py-4 rounded-xl font-black text-sm transition-all border ${cajaActiva.estado_envio === 'listo' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'} ${(cajaActiva.estado_envio === 'enviado' || cajaActiva.estado === 'abierta') && 'opacity-50 cursor-not-allowed'}`}><PackageCheck size={18} /> Listo para la Agencia</button>

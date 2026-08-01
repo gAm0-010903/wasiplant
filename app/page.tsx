@@ -259,8 +259,8 @@ export default function Home() {
     setDialogo({
       abierto: true,
       tipo: 'confirmar',
-      mensaje: `¿Estás listo para cerrar la caja de @${clienteActual.usuario_tiktok}?\n\nEl pedido pasará a Logística para su empaquetado.`,
-      textoConfirmar: 'Sí, Cerrar Caja',
+      mensaje: `¿Estás listo para guardar el carrito de @${clienteActual.usuario_tiktok}?\n\nEl pedido pasará a Logística para su empaquetado.`,
+      textoConfirmar: 'Sí, cerrar carrito',
       accionConfirmar: async () => {
         setCargando(true);
         await supabase.from('cajas').update({ estado: 'cerrada' }).eq('id', cajaActual.id);
@@ -535,10 +535,10 @@ export default function Home() {
             <div className="p-6 md:p-8 space-y-6">
               
               <div className="relative">
-                <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">1. Especie o Nombre</label>
+                <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">Nombre de la planta</label>
                 <div className="relative">
                   <Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
-                  <input type="text" className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-200 focus:border-green-500 outline-none text-sm font-bold bg-gray-50/50 shadow-inner" placeholder="Ej. Monstera Deliciosa..." value={busquedaPlanta} onChange={(e) => { setBusquedaPlanta(e.target.value); setMostrarSugerencias(true); }} onFocus={() => setMostrarSugerencias(true)} onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)} />
+                  <input type="text" className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-200 focus:border-green-500 outline-none text-sm font-bold bg-gray-50/50 shadow-inner" placeholder="Ej. Suculenta..." value={busquedaPlanta} onChange={(e) => { setBusquedaPlanta(e.target.value); setMostrarSugerencias(true); }} onFocus={() => setMostrarSugerencias(true)} onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)} />
                 </div>
                 
                 {mostrarSugerencias && busquedaPlanta.trim() !== '' && plantasFiltradas.length > 0 && (
