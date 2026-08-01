@@ -9,6 +9,12 @@ export default function Clientes() {
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
 
+  // ✅ ESTADOS PARA EL UBIGEO
+  const [ubigeoData, setUbigeoData] = useState<any[]>([]);
+  const [listaDepartamentos, setListaDepartamentos] = useState<string[]>([]);
+  const [listaProvincias, setListaProvincias] = useState<string[]>([]);
+  const [listaDistritos, setListaDistritos] = useState<string[]>([]);
+
   // ESTADOS PARA EL MODAL DE EDICIÓN
   const [modalAbierto, setModalAbierto] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null);
@@ -27,7 +33,20 @@ export default function Clientes() {
 
   useEffect(() => {
     cargarClientes();
+    cargarUbigeoPeru(); // ✅ Cargamos el Ubigeo al iniciar
   }, []);
+
+  // ✅ FUNCIÓN PARA CARGAR EL JSON DE UBIGEO (Misma que usas en Historial)
+  const cargarUbigeoPeru = async () => {
+    try {
+      const res = await fetch('https://raw.githubusercontent.com/jmcastagnetto/ubigeo-peru-aumentado/main/ubigeo_distrito.json');
+      const data = await res.json();
+      setUbigeoData(data);
+      setListaDepartamentos([...new Set(data.map((i: any) => i.departamento))].sort() as string[]);
+    } catch (error) {
+      console.error("Error al cargar Ubigeo", error);
+    }
+  };
 
   const cargarClientes = async () => {
     setCargando(true);
@@ -82,6 +101,20 @@ export default function Clientes() {
       direccion: cliente.direccion || '',
       referencia: cliente.referencia || ''
     });
+
+    // ✅ Pre-cargar las listas de Provincias y Distritos si el cliente ya tiene datos guardados
+    if (cliente.departamento && ubigeoData.length > 0) {
+      setListaProvincias([...new Set(ubigeoData.filter((i: any) => i.departamento === cliente.departamento).map((i: any) => i.provincia))].sort() as string[]);
+    } else {
+      setListaProvincias([]);
+    }
+    
+    if (cliente.departamento && cliente.provincia && ubigeoData.length > 0) {
+      setListaDistritos([...new Set(ubigeoData.filter((i: any) => i.departamento === cliente.departamento && i.provincia === cliente.provincia).map((i: any) => i.distrito))].sort() as string[]);
+    } else {
+      setListaDistritos([]);
+    }
+
     setModalAbierto(true);
   };
 
@@ -90,6 +123,28 @@ export default function Clientes() {
       ...formulario,
       [e.target.name]: e.target.value
     });
+  };
+
+  // ✅ FUNCIONES INTELIGENTES PARA ACTUALIZAR UBIGEO EN CASCADA
+  const cambiarDepartamento = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const dpto = e.target.value;
+    setFormulario({ ...formulario, departamento: dpto, provincia: '', distrito: '' });
+    if (dpto) {
+      setListaProvincias([...new Set(ubigeoData.filter((i: any) => i.departamento === dpto).map((i: any) => i.provincia))].sort() as string[]);
+    } else {
+      setListaProvincias([]);
+    }
+    setListaDistritos([]);
+  };
+
+  const cambiarProvincia = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const prov = e.target.value;
+    setFormulario({ ...formulario, provincia: prov, distrito: '' });
+    if (prov) {
+      setListaDistritos([...new Set(ubigeoData.filter((i: any) => i.departamento === formulario.departamento && i.provincia === prov).map((i: any) => i.distrito))].sort() as string[]);
+    } else {
+      setListaDistritos([]);
+    }
   };
 
   const guardarCambios = async () => {
@@ -103,7 +158,6 @@ export default function Clientes() {
 
       if (error) throw error;
 
-      // Actualizar estado local para no tener que recargar toda la página
       setClientes(clientes.map(c => 
         c.id === clienteSeleccionado.id ? { ...c, ...formulario } : c
       ));
@@ -141,7 +195,7 @@ export default function Clientes() {
   };
 
   const abrirWhatsApp = (e: React.MouseEvent, celular: string) => {
-    e.stopPropagation(); // Evita que se abra el modal al hacer clic en el botón de WhatsApp
+    e.stopPropagation(); 
     if (!celular) return alert("Este cliente no tiene un número de celular registrado.");
     const num = celular.replace(/\D/g, '');
     const numFinal = num.startsWith('51') ? num : `51${num}`;
@@ -156,13 +210,13 @@ export default function Clientes() {
   );
 
   return (
-    <div className="min-h-screen p-6 md:p-8 font-sans text-gray-800">
-      <header className="mb-8">
+    <div className="min-h-screen p-6 md:p-8 font-sans text-gray-800 relative">
+      <header className="mb-8 relative z-10">
         <h1 className="text-3xl font-bold text-green-700"> Directorio de Clientes</h1>
         <p className="text-gray-500">Gestión de contactos y seguimiento de estado</p>
       </header>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8">
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8 relative z-10">
         <div className="relative w-full max-w-2xl">
           <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
           <input 
@@ -176,9 +230,9 @@ export default function Clientes() {
       </div>
 
       {cargando ? (
-        <div className="text-center text-gray-500 py-10 font-medium">Cargando directorio...</div>
+        <div className="text-center text-gray-500 py-10 font-medium relative z-10">Cargando directorio...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative z-10">
           {clientesFiltrados.map((cliente) => {
             let colorClases = "";
             let IconoEstado = Timer;
@@ -210,7 +264,7 @@ export default function Clientes() {
               <div 
                 key={cliente.id} 
                 onClick={() => abrirModalCliente(cliente)}
-                className={`bg-white rounded-2xl shadow-sm border p-5 flex flex-col justify-between transition-all hover:shadow-md cursor-pointer hover:-translate-y-1 ${cliente.estadoLogistico === 'enviado' ? 'border-purple-200' : 'border-gray-100'}`}
+                className={`bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border p-5 flex flex-col justify-between transition-all hover:shadow-md cursor-pointer hover:-translate-y-1 ${cliente.estadoLogistico === 'enviado' ? 'border-purple-200' : 'border-gray-100'}`}
               >
                 <div className="mb-4">
                   <div className="flex justify-between items-start mb-2">
@@ -256,7 +310,7 @@ export default function Clientes() {
       )}
       
       {!cargando && clientesFiltrados.length === 0 && (
-        <div className="text-center text-gray-500 py-10 bg-white rounded-2xl border border-gray-100 shadow-sm mt-4">
+        <div className="text-center text-gray-500 py-10 bg-white rounded-2xl border border-gray-100 shadow-sm mt-4 relative z-10">
           No se encontraron clientes con la búsqueda "{busqueda}".
         </div>
       )}
@@ -298,20 +352,49 @@ export default function Clientes() {
 
               <div className="pt-4 border-t border-gray-100">
                 <h4 className="text-xs font-black text-gray-800 uppercase tracking-widest mb-4 flex items-center gap-2"><MapPin size={16} className="text-red-500"/> Datos de Envío</h4>
+                
+                {/* ✅ AQUÍ ESTÁN LOS NUEVOS SELECTORES INTELIGENTES */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Departamento</label>
-                    <input type="text" name="departamento" value={formulario.departamento} onChange={manejarCambioInput} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-blue-500 outline-none text-sm" />
+                    <select 
+                      name="departamento" 
+                      value={formulario.departamento} 
+                      onChange={cambiarDepartamento} 
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-blue-500 outline-none text-sm font-semibold text-gray-700 bg-white"
+                    >
+                      <option value="">Seleccione...</option>
+                      {listaDepartamentos.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Provincia</label>
-                    <input type="text" name="provincia" value={formulario.provincia} onChange={manejarCambioInput} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-blue-500 outline-none text-sm" />
+                    <select 
+                      name="provincia" 
+                      value={formulario.provincia} 
+                      onChange={cambiarProvincia} 
+                      disabled={!formulario.departamento}
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-blue-500 outline-none text-sm font-semibold text-gray-700 bg-white disabled:opacity-50"
+                    >
+                      <option value="">Seleccione...</option>
+                      {listaProvincias.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Distrito</label>
-                    <input type="text" name="distrito" value={formulario.distrito} onChange={manejarCambioInput} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-blue-500 outline-none text-sm" />
+                    <select 
+                      name="distrito" 
+                      value={formulario.distrito} 
+                      onChange={(e) => setFormulario({...formulario, distrito: e.target.value})} 
+                      disabled={!formulario.provincia}
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-blue-500 outline-none text-sm font-semibold text-gray-700 bg-white disabled:opacity-50"
+                    >
+                      <option value="">Seleccione...</option>
+                      {listaDistritos.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
                   </div>
                 </div>
+
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Dirección Exacta</label>
